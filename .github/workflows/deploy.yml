@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main   # Auto deploy kalau ada push ke branch main
-
+ 
 jobs:
   deploy:
     runs-on: ubuntu-latest
