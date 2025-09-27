@@ -3,8 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Enums\ApplicationStatus;
-use App\Models\Candidate;
+use App\Models\Application;
 use App\Models\Vacancies;
+use App\Models\VacancyPeriods;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -15,11 +16,30 @@ class JobsController extends Controller
 {
     public function index()
     {
-        $vacancies = Vacancies::all();
+        $vacancies = Vacancies::with(['company', 'department'])->get()->map(function ($vacancy) {
+            return [
+                'id' => $vacancy->id,
+                'title' => $vacancy->title,
+                'department' => $vacancy->department ? $vacancy->department->name : 'Unknown',
+                'location' => $vacancy->location,
+                'salary' => $vacancy->salary,
+                'company' => $vacancy->company ? $vacancy->company->name : 'Unknown',
+                'requirements' => is_array($vacancy->requirements) ? $vacancy->requirements : [],
+                'benefits' => is_array($vacancy->benefits) ? $vacancy->benefits : [],
+                'job_description' => $vacancy->job_description,
+                'created_at' => $vacancy->created_at,
+                'updated_at' => $vacancy->updated_at
+            ];
+        });
+        
         $appliedVacancyIds = [];
         if (Auth::check()) {
-            $appliedVacancyIds = Candidate::where('user_id', Auth::id())
-                ->pluck('vacancies_id')
+            // Get applied vacancy IDs through the Application -> VacancyPeriod -> Vacancy relationship
+            $appliedVacancyIds = Application::where('user_id', Auth::id())
+                ->with('vacancyPeriod')
+                ->get()
+                ->pluck('vacancyPeriod.vacancy_id')
+                ->filter()
                 ->toArray();
         }
 
@@ -35,10 +55,23 @@ class JobsController extends Controller
         DB::beginTransaction();
 
         try {
-            Vacancies::findOrFail($id);
+            // Find the vacancy
+            $vacancy = Vacancies::findOrFail($id);
+            
+            // Find the vacancy period for this vacancy (assuming there's an active period)
+            $vacancyPeriod = VacancyPeriods::where('vacancy_id', $id)
+                ->whereHas('period', function($query) {
+                    $query->where('status', 'active'); // Assuming there's a status field
+                })
+                ->first();
+
+            if (!$vacancyPeriod) {
+                return redirect()->back()->with('error', 'No active recruitment period found for this position');
+            }
+
             // Check if user has already applied to this vacancy
-            $existingApplication = Candidate::where('user_id', Auth::id())
-                ->where('vacancies_id', $id)
+            $existingApplication = Application::where('user_id', Auth::id())
+                ->where('vacancy_period_id', $vacancyPeriod->id)
                 ->first();
 
             if ($existingApplication) {
@@ -46,21 +79,20 @@ class JobsController extends Controller
             }
 
             $user_id = Auth::id();
-            Candidate::create([
+            Application::create([
                 'user_id' => $user_id,
-                'vacancies_id' => $id,
-                'applied_at' => now(),
-                'status' => ApplicationStatus::ADMINISTRATIVE_SELECTION,
+                'vacancy_period_id' => $vacancyPeriod->id,
+                'status_id' => 1, // Assuming status_id 1 is for administrative selection
             ]);
 
             DB::commit();
 
-            Log::info('User applied for a job', ['user_id' => Auth::id(), 'vacancies_id' => $id]);
+            Log::info('User applied for a job', ['user_id' => Auth::id(), 'vacancy_id' => $id, 'vacancy_period_id' => $vacancyPeriod->id]);
 
             return redirect()->back()->with('success', 'Your application has been submitted successfully!');
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error while applying for a job', ['user_id' => Auth::id(), 'vacancies_id' => $id, 'error' => $e->getMessage()]);
+            Log::error('Error while applying for a job', ['user_id' => Auth::id(), 'vacancy_id' => $id, 'error' => $e->getMessage()]);
 
             return redirect()->back()->with('error', 'An error occurred while submitting your application. Please try again.');
         }

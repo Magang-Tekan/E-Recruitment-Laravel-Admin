@@ -120,13 +120,17 @@ export default function JobLists(props: JobListsProps) {
                                 <div className="mb-6">
                                     <h3 className="mb-3 text-lg font-medium">Requirements</h3>
                                     <ul className="list-inside list-disc space-y-2 text-gray-600">
-                                        {selectedJob.requirements.map((req, idx) => (
-                                            <li key={idx}>{req}</li>
-                                        ))}
+                                        {Array.isArray(selectedJob.requirements) && selectedJob.requirements.length > 0 ? (
+                                            selectedJob.requirements.map((req, idx) => (
+                                                <li key={idx}>{req}</li>
+                                            ))
+                                        ) : (
+                                            <li>No specific requirements listed</li>
+                                        )}
                                     </ul>
                                 </div>
 
-                                {selectedJob.benefits && selectedJob.benefits.length > 0 && (
+                                {Array.isArray(selectedJob.benefits) && selectedJob.benefits.length > 0 && (
                                     <div className="mb-6">
                                         <h3 className="mb-3 text-lg font-medium">Benefits</h3>
                                         <ul className="list-inside list-disc space-y-2 text-gray-600">

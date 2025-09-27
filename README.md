@@ -26,6 +26,31 @@ Sistem Rekrutmen berbasis website yang dikembangkan menggunakan **Laravel 12** d
 
 ## 📌 Instalasi
 
+### 🐳 Menggunakan Docker (Recommended)
+
+1. Clone repository:
+    ```bash
+    git clone https://github.com/codewithwan/eRecruitment-Laravel.git
+    cd eRecruitment-Laravel
+    ```
+
+2. Buat file **.env** dan atur konfigurasi database:
+    ```bash
+    cp .env.example .env
+    ```
+
+3. Jalankan dengan Docker:
+    ```bash
+    docker-compose up -d
+    ```
+
+4. Akses aplikasi:
+    - **Laravel App:** http://localhost:8000
+    - **phpMyAdmin:** http://localhost:8080
+    - **MySQL:** localhost:3306
+
+### 💻 Instalasi Manual
+
 1. Clone repository:
     ```bash
     git clone https://github.com/codewithwan/eRecruitment-Laravel.git

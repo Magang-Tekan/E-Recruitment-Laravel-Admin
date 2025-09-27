@@ -330,7 +330,23 @@ class VacanciesController extends Controller
      */
     private function getVacanciesWithStatus()
     {
-        return Vacancies::with(['company', 'department', 'major', 'questionPack', 'educationLevel'])->get();
+        return Vacancies::with(['company', 'department', 'major', 'questionPack', 'educationLevel'])
+            ->get()
+            ->map(function ($vacancy) {
+                return [
+                    'id' => $vacancy->id,
+                    'title' => $vacancy->title,
+                    'department' => $vacancy->department ? $vacancy->department->name : 'Unknown',
+                    'location' => $vacancy->location,
+                    'salary' => $vacancy->salary,
+                    'company' => $vacancy->company ? $vacancy->company->name : 'Unknown',
+                    'requirements' => is_array($vacancy->requirements) ? $vacancy->requirements : [],
+                    'benefits' => is_array($vacancy->benefits) ? $vacancy->benefits : [],
+                    'job_description' => $vacancy->job_description,
+                    'created_at' => $vacancy->created_at,
+                    'updated_at' => $vacancy->updated_at
+                ];
+            });
     }
 
     /**
