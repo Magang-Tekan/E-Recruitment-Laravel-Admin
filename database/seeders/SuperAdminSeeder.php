@@ -17,6 +17,7 @@ class SuperAdminSeeder extends Seeder
         User::factory()->create([
             'name' => env('SUPER_ADMIN_NAME', 'Super Admin'),
             'email' => env('SUPER_ADMIN_EMAIL', 'superadmin@gmail.com'),
+            'no_ektp' => env('SUPER_ADMIN_EKTP', '1234567890123450'),
             'password' => Hash::make(env('SUPER_ADMIN_PASSWORD', 'password')),
             'role' => UserRole::SUPER_ADMIN,
         ]);

@@ -19,6 +19,7 @@ class UserSeeder extends Seeder
         User::factory()->create([
             'name' => 'HR User',
             'email' => 'hr@gmail.com',
+            'no_ektp' => '1234567890123456',
             'password' => Hash::make('password'),
             'role' => UserRole::HR,
         ]);
@@ -27,6 +28,7 @@ class UserSeeder extends Seeder
         User::factory()->create([
             'name' => 'Head HR',
             'email' => 'head.hr@gmail.com',
+            'no_ektp' => '1234567890123457',
             'password' => Hash::make('password'),
             'role' => UserRole::HEAD_HR,
         ]);
@@ -35,6 +37,7 @@ class UserSeeder extends Seeder
         User::factory()->create([
             'name' => 'Head Dev',
             'email' => 'head.dev@gmail.com',
+            'no_ektp' => '1234567890123458',
             'password' => Hash::make('password'),
             'role' => UserRole::HEAD_DEV,
         ]);
@@ -43,6 +46,7 @@ class UserSeeder extends Seeder
         User::factory()->create([
             'name' => 'Candidate User',
             'email' => 'candidate@gmail.com',
+            'no_ektp' => '1234567890123459',
             'password' => Hash::make('password'),
             'role' => UserRole::CANDIDATE,
         ]);
