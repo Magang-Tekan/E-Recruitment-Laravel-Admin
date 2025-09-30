@@ -12,6 +12,7 @@ use App\Models\MasterMajor;
 use App\Models\VacancyType;
 use App\Models\EducationLevel;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
 
 class VacanciesSeeder extends Seeder
 {
@@ -21,7 +22,7 @@ class VacanciesSeeder extends Seeder
     public function run(): void
     {
         // Get required data
-        $user = User::where('role', UserRole::HR->value)->first() ?? User::factory()->create(['role' => UserRole::HR->value]);
+        $user = User::where('role', UserRole::HR->value)->first() ?? User::create(['name' => 'HR User', 'email' => 'hr@gmail.com', 'password' => Hash::make('password'), 'role' => UserRole::HR->value]);
         $companies = Company::all();
         $questionPacks = QuestionPack::all();
         $departments = Department::all();

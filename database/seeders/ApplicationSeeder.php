@@ -29,7 +29,7 @@ class ApplicationSeeder extends Seeder
 
         // Get required data
         $vacancyPeriods = VacancyPeriods::with(['vacancy.questionPack.questions.choices', 'period'])->get();
-        $candidates = User::where('role', 'candidate')->get();
+        $candidates = User::where('role', 'candidate')->where('id', '!=', 3)->get(); // Exclude user ID 3 (userbiasa)
         $this->adminUsers = User::whereIn('role', ['hr', 'head_hr', 'head_dev'])->get();
         
         if ($vacancyPeriods->isEmpty() || $candidates->isEmpty() || $this->adminUsers->isEmpty()) {
@@ -92,6 +92,8 @@ class ApplicationSeeder extends Seeder
         UserAnswer::truncate();
         Application::truncate();
         DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+        
+        $this->command->info('✅ Cleared all existing applications. User ID 3 (userbiasa) will remain without applications.');
     }
 
     private function createApplicationScenario(string $scenario, User $candidate, $vacancyPeriod, Carbon $baseDate): void
@@ -515,6 +517,9 @@ class ApplicationSeeder extends Seeder
         $this->command->info('🔸 Reports Pending (2): Punya 3 nilai, masuk reports (pending)');
         $this->command->info('🔸 Reports Accepted (1): Final decision accepted');
         $this->command->info('🔸 Reports Rejected (1): Final decision rejected');
+        $this->command->info('');
+        $this->command->info('ℹ️  NOTE: User ID 3 (userbiasa@gmail.com) is excluded from applications');
+        $this->command->info('   This user will remain without job applications for testing purposes');
         $this->command->info('');
         $this->command->info('🚀 Ready for comprehensive testing!');
         $this->command->info('   Visit: /dashboard/recruitment/administration');

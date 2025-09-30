@@ -24,11 +24,8 @@ class UserSeeder extends Seeder
      */
     public function run(): void
     {
-        // Hapus user HR jika sudah ada
-        User::where('email', 'hr@gmail.com')->delete();
-
-        // User HR (manual)
-        User::factory()->create([
+       // User HR (manual)
+        User::create([
             'name' => 'HR User',
             'email' => 'hr@gmail.com',
             'password' => Hash::make('password'),

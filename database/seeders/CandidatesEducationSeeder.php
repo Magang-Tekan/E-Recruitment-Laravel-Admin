@@ -21,6 +21,19 @@ class CandidatesEducationSeeder extends Seeder
         $candidateUsers = User::where('role', UserRole::CANDIDATE)->get();
         $majors = MasterMajor::all();
         $educationLevels = EducationLevel::all();
+        
+        // Ensure required data exists
+        if ($majors->isEmpty()) {
+            $this->command->info('No majors found. Running MasterMajorSeeder first.');
+            $this->call(MasterMajorSeeder::class);
+            $majors = MasterMajor::all();
+        }
+        
+        if ($educationLevels->isEmpty()) {
+            $this->command->info('No education levels found. Running EducationLevelSeeder first.');
+            $this->call(EducationLevelSeeder::class);
+            $educationLevels = EducationLevel::all();
+        }
 
         $faculties = [
             'Fakultas Teknik',
@@ -117,29 +130,65 @@ class CandidatesEducationSeeder extends Seeder
         ];
 
         foreach ($candidateUsers as $user) {
-            // Each candidate gets 1-3 education records
-            $numberOfEducations = rand(1, 3);
-            
-            for ($i = 0; $i < $numberOfEducations; $i++) {
-                $educationLevel = $educationLevels->random();
-                $startYear = 2010 + rand(0, 10); // 2010-2020
-                $endYear = $startYear + $this->getEducationDuration($educationLevel->name);
+            // Special education for user ID 3 (userbiasa) - Software Engineer profile
+            if ($user->id == 3) {
+                // S1 Teknik Informatika
+                $s1Level = $educationLevels->where('id', 6)->first();
+                $informatikaMajor = $majors->where('name', 'Teknik Informatika')->first();
                 
-                // For current education, end year might be null
-                if (rand(0, 1) && $i == $numberOfEducations - 1) {
-                    $endYear = null;
+                if ($s1Level && $informatikaMajor) {
+                    CandidatesEducation::create([
+                        'user_id' => $user->id,
+                        'education_level_id' => $s1Level->id,
+                        'faculty' => 'Fakultas Ilmu Komputer',
+                        'major_id' => $informatikaMajor->id,
+                        'institution_name' => 'Universitas Indonesia',
+                        'gpa' => 3.75,
+                        'year_in' => 2015,
+                        'year_out' => 2019,
+                    ]);
                 }
                 
-                CandidatesEducation::create([
-                    'user_id' => $user->id,
-                    'education_level_id' => $educationLevel->id,
-                    'faculty' => $faculties[array_rand($faculties)],
-                    'major_id' => $majors->random()->id,
-                    'institution_name' => $institutions[array_rand($institutions)],
-                    'gpa' => rand(250, 400) / 100, // 2.50 - 4.00
-                    'year_in' => $startYear,
-                    'year_out' => $endYear,
-                ]);
+                // SMA
+                $smaLevel = $educationLevels->where('name', 'SMA/SMK')->first();
+                $smaMajor = $majors->where('name', 'Matematika')->first() ?? $majors->first(); // Use Matematika major for SMA or fallback
+                if ($smaLevel && $smaMajor) {
+                    CandidatesEducation::create([
+                        'user_id' => $user->id,
+                        'education_level_id' => $smaLevel->id,
+                        'faculty' => 'SMA',
+                        'major_id' => $smaMajor->id,
+                        'institution_name' => 'SMA Negeri 8 Jakarta',
+                        'gpa' => 3.80,
+                        'year_in' => 2012,
+                        'year_out' => 2015,
+                    ]);
+                }
+            } else {
+                // Each candidate gets 1-3 education records
+                $numberOfEducations = rand(1, 3);
+                
+                for ($i = 0; $i < $numberOfEducations; $i++) {
+                    $educationLevel = $educationLevels->random();
+                    $startYear = 2010 + rand(0, 10); // 2010-2020
+                    $endYear = $startYear + $this->getEducationDuration($educationLevel->name);
+                    
+                    // For current education, end year might be null
+                    if (rand(0, 1) && $i == $numberOfEducations - 1) {
+                        $endYear = null;
+                    }
+                    
+                    CandidatesEducation::create([
+                        'user_id' => $user->id,
+                        'education_level_id' => $educationLevel->id,
+                        'faculty' => $faculties[array_rand($faculties)],
+                        'major_id' => $majors->random()->id,
+                        'institution_name' => $institutions[array_rand($institutions)],
+                        'gpa' => rand(250, 400) / 100, // 2.50 - 4.00
+                        'year_in' => $startYear,
+                        'year_out' => $endYear,
+                    ]);
+                }
             }
         }
     }

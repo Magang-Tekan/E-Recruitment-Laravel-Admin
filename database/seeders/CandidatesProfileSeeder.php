@@ -47,23 +47,44 @@ class CandidatesProfileSeeder extends Seeder
             $city = $cities[array_rand($cities)];
             $placeOfBirth = $placeOfBirths[array_rand($placeOfBirths)];
             
-            CandidatesProfile::create([
-                'user_id' => $user->id,
-                'no_ektp' => '3171' . str_pad(rand(1, 999999), 6, '0', STR_PAD_LEFT) . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT),
-                'gender' => rand(0, 1) ? 'Laki-laki' : 'Perempuan',
-                'phone_number' => '08' . rand(10000000, 99999999),
-                'npwp' => rand(0, 1) ? rand(10, 99) . '.' . rand(100, 999) . '.' . rand(100, 999) . '.' . rand(1, 9) . '-' . rand(100, 999) . '.000' : null,
-                'about_me' => 'Saya adalah lulusan ' . $this->getRandomEducation() . ' yang memiliki passion di bidang teknologi dan inovasi. Saya senang belajar hal-hal baru dan selalu berusaha memberikan yang terbaik dalam setiap pekerjaan. Memiliki kemampuan komunikasi yang baik dan dapat bekerja dalam tim maupun individu.',
-                'place_of_birth' => $placeOfBirth,
-                'date_of_birth' => now()->subYears(rand(22, 35))->subDays(rand(1, 365)),
-                'address' => 'Jl. ' . $this->getRandomStreetName() . ' No. ' . rand(1, 100) . ', RT ' . str_pad(rand(1, 20), 2, '0', STR_PAD_LEFT) . ' RW ' . str_pad(rand(1, 10), 2, '0', STR_PAD_LEFT),
-                'province' => $province,
-                'city' => $city,
-                'district' => $this->getRandomDistrict(),
-                'village' => $this->getRandomVillage(),
-                'rt' => str_pad(rand(1, 20), 2, '0', STR_PAD_LEFT),
-                'rw' => str_pad(rand(1, 10), 2, '0', STR_PAD_LEFT),
-            ]);
+            // Special profile for user ID 3 (userbiasa) - Software Engineer profile
+            if ($user->id == 3) {
+                CandidatesProfile::create([
+                    'user_id' => $user->id,
+                    'no_ektp' => '3171' . str_pad(rand(1, 999999), 6, '0', STR_PAD_LEFT) . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT),
+                    'gender' => 'Laki-laki',
+                    'phone_number' => '08123456789',
+                    'npwp' => '12.345.678.9-123.000',
+                    'about_me' => 'Saya adalah Software Engineer dengan pengalaman 3 tahun dalam pengembangan aplikasi web dan mobile. Menguasai bahasa pemrograman Java, Python, dan JavaScript dengan framework Spring Boot, React, dan Node.js. Memiliki kemampuan problem solving yang baik dan dapat bekerja dalam tim maupun individu. Passionate dalam teknologi dan selalu mengikuti perkembangan terbaru dalam dunia software development.',
+                    'place_of_birth' => 'Jakarta',
+                    'date_of_birth' => now()->subYears(28)->subDays(rand(1, 365)),
+                    'address' => 'Jl. Sudirman No. 123, RT 05 RW 02',
+                    'province' => 'DKI Jakarta',
+                    'city' => 'Jakarta Pusat',
+                    'district' => 'Menteng',
+                    'village' => 'Menteng Atas',
+                    'rt' => '05',
+                    'rw' => '02',
+                ]);
+            } else {
+                CandidatesProfile::create([
+                    'user_id' => $user->id,
+                    'no_ektp' => '3171' . str_pad(rand(1, 999999), 6, '0', STR_PAD_LEFT) . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT),
+                    'gender' => rand(0, 1) ? 'Laki-laki' : 'Perempuan',
+                    'phone_number' => '08' . rand(10000000, 99999999),
+                    'npwp' => rand(0, 1) ? rand(10, 99) . '.' . rand(100, 999) . '.' . rand(100, 999) . '.' . rand(1, 9) . '-' . rand(100, 999) . '.000' : null,
+                    'about_me' => 'Saya adalah lulusan ' . $this->getRandomEducation() . ' yang memiliki passion di bidang teknologi dan inovasi. Saya senang belajar hal-hal baru dan selalu berusaha memberikan yang terbaik dalam setiap pekerjaan. Memiliki kemampuan komunikasi yang baik dan dapat bekerja dalam tim maupun individu.',
+                    'place_of_birth' => $placeOfBirth,
+                    'date_of_birth' => now()->subYears(rand(22, 35))->subDays(rand(1, 365)),
+                    'address' => 'Jl. ' . $this->getRandomStreetName() . ' No. ' . rand(1, 100) . ', RT ' . str_pad(rand(1, 20), 2, '0', STR_PAD_LEFT) . ' RW ' . str_pad(rand(1, 10), 2, '0', STR_PAD_LEFT),
+                    'province' => $province,
+                    'city' => $city,
+                    'district' => $this->getRandomDistrict(),
+                    'village' => $this->getRandomVillage(),
+                    'rt' => str_pad(rand(1, 20), 2, '0', STR_PAD_LEFT),
+                    'rw' => str_pad(rand(1, 10), 2, '0', STR_PAD_LEFT),
+                ]);
+            }
         }
     }
 

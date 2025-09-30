@@ -13,8 +13,8 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             // 1. Basic User Management (No Dependencies)
-            SuperAdminSeeder::class,
             UserSeeder::class,
+            SuperAdminSeeder::class,
             
             // 2. Master Data (No Dependencies)
             CompanySeeder::class,
@@ -35,6 +35,9 @@ class DatabaseSeeder extends Seeder
             
             // 5. Period System (Depends on: Vacancies)
             PeriodSeeder::class,
+            
+            // 6. Vacancy Periods (Depends on: Vacancies, Period)
+            VacancyPeriodsSeeder::class,
             
             // 7. Company Information (Depends on: Company)
             AboutUsSeeder::class,

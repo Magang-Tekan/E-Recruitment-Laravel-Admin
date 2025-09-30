@@ -123,52 +123,81 @@ class CandidatesWorkExperienceSeeder extends Seeder
         ];
 
         foreach ($candidateUsers as $user) {
-            // Each candidate gets 0-4 work experiences
-            $numberOfExperiences = rand(0, 4);
-            
-            $currentYear = date('Y');
-            $currentMonth = date('n');
-            
-            for ($i = 0; $i < $numberOfExperiences; $i++) {
-                $startYear = rand(2015, $currentYear - 1);
-                $startMonth = rand(1, 12);
-                
-                $isCurrentJob = ($i == 0) ? rand(0, 1) : 0; // Only first experience can be current
-                
-                if ($isCurrentJob) {
-                    $endYear = null;
-                    $endMonth = null;
-                } else {
-                    $endYear = rand($startYear, $currentYear);
-                    if ($endYear == $currentYear) {
-                        $endMonth = rand(1, $currentMonth);
-                    } else {
-                        $endMonth = rand(1, 12);
-                    }
-                    
-                    // Ensure end date is after start date
-                    if ($endYear == $startYear && $endMonth <= $startMonth) {
-                        $endMonth = $startMonth + rand(1, 12 - $startMonth);
-                        if ($endMonth > 12) {
-                            $endMonth = 12;
-                        }
-                    }
-                }
-                
-                $jobTitle = $jobTitles[array_rand($jobTitles)];
-                $company = $companies[array_rand($companies)];
-                
+            // Special work experience for user ID 3 (userbiasa) - Software Engineer profile
+            if ($user->id == 3) {
+                // Current job as Software Engineer
                 CandidatesWorkExperience::create([
                     'user_id' => $user->id,
-                    'job_title' => $jobTitle,
-                    'employment_status' => $employmentStatuses[array_rand($employmentStatuses)],
-                    'job_description' => $this->generateJobDescription($jobTitle, $company),
-                    'is_current_job' => $isCurrentJob,
-                    'start_month' => $startMonth,
-                    'start_year' => $startYear,
-                    'end_month' => $endMonth,
-                    'end_year' => $endYear,
+                    'job_title' => 'Software Engineer',
+                    'employment_status' => 'Karyawan Tetap',
+                    'job_description' => 'Bertanggung jawab dalam pengembangan dan pemeliharaan aplikasi web menggunakan Java Spring Boot dan React. Mengimplementasikan RESTful API dan mengintegrasikan dengan database MySQL. Melakukan code review dan mentoring junior developers. Bekerja di PT. Gojek Indonesia sebagai Software Engineer.',
+                    'is_current_job' => true,
+                    'start_month' => 3,
+                    'start_year' => 2022,
+                    'end_month' => null,
+                    'end_year' => null,
                 ]);
+                
+                // Previous job as Junior Developer
+                CandidatesWorkExperience::create([
+                    'user_id' => $user->id,
+                    'job_title' => 'Junior Developer',
+                    'employment_status' => 'Karyawan Tetap',
+                    'job_description' => 'Mengembangkan aplikasi web menggunakan PHP Laravel dan JavaScript. Membuat dan memelihara database MySQL. Berkolaborasi dengan tim untuk mengembangkan fitur-fitur baru. Bekerja di PT. Tokopedia sebagai Junior Developer.',
+                    'is_current_job' => false,
+                    'start_month' => 6,
+                    'start_year' => 2020,
+                    'end_month' => 2,
+                    'end_year' => 2022,
+                ]);
+            } else {
+                // Each candidate gets 0-4 work experiences
+                $numberOfExperiences = rand(0, 4);
+                
+                $currentYear = date('Y');
+                $currentMonth = date('n');
+                
+                for ($i = 0; $i < $numberOfExperiences; $i++) {
+                    $startYear = rand(2015, $currentYear - 1);
+                    $startMonth = rand(1, 12);
+                    
+                    $isCurrentJob = ($i == 0) ? rand(0, 1) : 0; // Only first experience can be current
+                    
+                    if ($isCurrentJob) {
+                        $endYear = null;
+                        $endMonth = null;
+                    } else {
+                        $endYear = rand($startYear, $currentYear);
+                        if ($endYear == $currentYear) {
+                            $endMonth = rand(1, $currentMonth);
+                        } else {
+                            $endMonth = rand(1, 12);
+                        }
+                        
+                        // Ensure end date is after start date
+                        if ($endYear == $startYear && $endMonth <= $startMonth) {
+                            $endMonth = $startMonth + rand(1, 12 - $startMonth);
+                            if ($endMonth > 12) {
+                                $endMonth = 12;
+                            }
+                        }
+                    }
+                    
+                    $jobTitle = $jobTitles[array_rand($jobTitles)];
+                    $company = $companies[array_rand($companies)];
+                    
+                    CandidatesWorkExperience::create([
+                        'user_id' => $user->id,
+                        'job_title' => $jobTitle,
+                        'employment_status' => $employmentStatuses[array_rand($employmentStatuses)],
+                        'job_description' => $this->generateJobDescription($jobTitle, $company),
+                        'is_current_job' => $isCurrentJob,
+                        'start_month' => $startMonth,
+                        'start_year' => $startYear,
+                        'end_month' => $endMonth,
+                        'end_year' => $endYear,
+                    ]);
+                }
             }
         }
     }
