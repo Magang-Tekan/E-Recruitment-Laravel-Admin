@@ -42,19 +42,20 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - APP_ENV=local
-      - APP_DEBUG=true
+      - APP_ENV=production
+      - APP_DEBUG=false
       - DB_CONNECTION=mysql
       - DB_HOST=mysql
       - DB_PORT=3306
       - DB_DATABASE=erecruitment
       - DB_USERNAME=erecruitment_user
       - DB_PASSWORD=erecruitment_password
-    volumes:
-      - .:/var/www/html
-      - vendor_data:/var/www/html/vendor
-      - node_modules_data:/var/www/html/node_modules
-      - build_data:/var/www/html/public/build
+    # Hapus volume mounting yang mengoverride file yang sudah di-build
+    # volumes:
+    #   - .:/var/www/html
+    #   - vendor_data:/var/www/html/vendor
+    #   - node_modules_data:/var/www/html/node_modules
+    #   - build_data:/var/www/html/public/build
     depends_on:
       mysql:
         condition: service_started
@@ -63,19 +64,20 @@ services:
     command: >
       sh -c "
         sleep 10 &&
-        composer install &&
-        npm install &&
         php artisan key:generate --force &&
         php artisan config:cache &&
+        php artisan route:cache &&
+        php artisan view:cache &&
         php artisan migrate --force &&
         php artisan serve --host=0.0.0.0 --port=8000
       "
 
 volumes:
   mysql_data:
-  vendor_data:
-  node_modules_data:
-  build_data:
+  # Hapus volume yang tidak diperlukan untuk production
+  # vendor_data:
+  # node_modules_data:
+  # build_data:
 
 networks:
   erecruitment_network:

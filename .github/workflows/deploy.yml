@@ -30,7 +30,30 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
             cd /root/project/E-Recruitment-Laravel-Admin
-            docker compose down
-            docker compose build --no-cache
+            
+            # Hapus semua container dan volume yang tidak digunakan
+            docker compose down --volumes --remove-orphans
+            
+            # Hapus semua image yang tidak digunakan
+            docker image prune -af
+            
+            # Hapus semua volume yang tidak digunakan
+            docker volume prune -f
+            
+            # Build ulang dengan no-cache
+            docker compose build --no-cache --pull
+            
+            # Jalankan dengan compose yang sudah diperbaiki
             docker compose up -d
+            
+            # Tunggu aplikasi siap
+            sleep 30
+            
+            # Clear cache Laravel
+            docker compose exec app php artisan config:clear
+            docker compose exec app php artisan cache:clear
+            docker compose exec app php artisan view:clear
+            docker compose exec app php artisan route:clear
+            
+            # Cleanup sistem
             docker system prune -af
