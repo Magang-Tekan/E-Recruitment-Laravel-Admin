@@ -193,7 +193,14 @@ export default function AdministrationDetail({ candidate }: Props) {
                             {candidate.status.name}
                         </Badge>
                         {candidate.user.cv && (
-                            <Button variant="outline" size="sm" onClick={() => window.open(candidate.user.cv.path)}>
+                            <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => {
+                                    const downloadUrl = `/dashboard/candidates/${candidate.id}/cv/download`;
+                                    window.open(downloadUrl, '_blank');
+                                }}
+                            >
                                 <Download className="mr-2 h-4 w-4" />
                                 Download CV
                             </Button>

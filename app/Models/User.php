@@ -67,6 +67,11 @@ class User extends Authenticatable
         return $this->hasOne(CandidatesProfile::class);
     }
 
+    public function candidatesCV()
+    {
+        return $this->hasOne(CandidatesCV::class);
+    }
+
     public function candidatesEducations()
     {
         return $this->hasMany(CandidatesEducation::class);
@@ -110,10 +115,5 @@ class User extends Authenticatable
     public function candidatesSocialMedia()
     {
         return $this->hasMany(CandidatesSocialMedia::class);
-    }
-
-    public function candidatesCV()
-    {
-        return $this->hasOne(CandidatesCV::class);
     }
 }

@@ -4,7 +4,7 @@ import { NavUser } from '@/components/nav-user';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { type NavItem } from '@/types';
 import { Link } from '@inertiajs/react';
-import { Github, LayoutGrid, Search, User } from 'lucide-react';
+import { Github, LayoutGrid, Search, User, FileText } from 'lucide-react';
 import AppLogo from './app-logo';
 
 const mainNavItems: NavItem[] = [
@@ -17,6 +17,11 @@ const mainNavItems: NavItem[] = [
         title: 'Your Profile Data',
         href: '/candidate/profile',
         icon: User,
+    },
+    {
+        title: 'CV Generator',
+        href: '/candidate/cv',
+        icon: FileText,
     },
     {
         title: 'Job Opportunities',

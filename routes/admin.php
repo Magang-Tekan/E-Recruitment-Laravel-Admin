@@ -136,4 +136,28 @@ Route::middleware(['auth', 'verified', 'role:' . UserRole::HR->value])
             ->name('recruitment.reports.detail');
         Route::post('/recruitment/reports/{id}/action', [ApplicationStageController::class, 'reportAction'])
             ->name('recruitment.reports.action');
+        
+        // CV Routes
+        Route::get('/candidates/{id}/cv/download', [ApplicationStageController::class, 'downloadCV'])
+            ->name('candidates.cv.download');
+        Route::get('/candidates/{id}/cv/generate', [ApplicationStageController::class, 'generateCV'])
+            ->name('candidates.cv.generate');
+        
+        // Test route for CV download
+        Route::get('/test-cv-download/{id}', function($id) {
+            $application = App\Models\Application::with(['user.candidatesCV'])->findOrFail($id);
+            
+            if (!$application->user->candidatesCV) {
+                abort(404, 'CV not found');
+            }
+            
+            $cv = $application->user->candidatesCV;
+            $filePath = storage_path('app/' . $cv->cv_path);
+            
+            if (!file_exists($filePath)) {
+                abort(404, 'CV file not found');
+            }
+            
+            return response()->download($filePath, $cv->cv_filename);
+        })->name('test.cv.download');
     });
