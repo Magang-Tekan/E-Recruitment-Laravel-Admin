@@ -952,8 +952,8 @@ class ApplicationStageController extends Controller
                 'stages' => [
                     'interview' => [
                         'status' => $currentHistory?->status->code ?? 'pending',
-                        'scheduled_at' => $currentHistory?->scheduled_at,
-                        'completed_at' => $currentHistory?->completed_at,
+                        'scheduled_at' => $currentHistory?->scheduled_at ? $currentHistory->scheduled_at->setTimezone('Asia/Jakarta')->format('Y-m-d H:i:s') : null,
+                        'completed_at' => $currentHistory?->completed_at ? $currentHistory->completed_at->toISOString() : null,
                         'notes' => $currentHistory?->notes,
                         // Only show interview score if interview has been completed
                         'score' => ($currentHistory && $currentHistory->completed_at && $currentHistory->score) 
@@ -1070,6 +1070,10 @@ class ApplicationStageController extends Controller
                     'id' => $application->user->id,
                     'name' => $application->user->name,
                     'email' => $application->user->email,
+                    'cv' => $application->user->candidatesCV ? [
+                        'path' => $application->user->candidatesCV->cv_path,
+                        'filename' => $application->user->candidatesCV->cv_filename,
+                    ] : null,
                     'profile' => $application->user->candidatesProfile ? [
                         'full_name' => $application->user->candidatesProfile->full_name,
                         'phone' => $application->user->candidatesProfile->phone_number,
@@ -1095,10 +1099,13 @@ class ApplicationStageController extends Controller
                 ],
                 'stages' => [
                     'interview' => [
-                        'scheduled_at' => $currentHistory?->scheduled_at,
-                        'completed_at' => $currentHistory?->completed_at,
+                        'scheduled_at' => $currentHistory?->scheduled_at ? $currentHistory->scheduled_at->format('Y-m-d H:i:s') : null,
+                        'completed_at' => $currentHistory?->completed_at ? $currentHistory->completed_at->format('Y-m-d H:i:s') : null,
                         'score' => $currentHistory?->score,
                         'notes' => $currentHistory?->notes,
+                        'duration' => $currentHistory?->scheduled_at && $currentHistory?->completed_at ? 
+                            $this->calculateDuration($currentHistory->scheduled_at, $currentHistory->completed_at) : '60 Menit',
+                        'location' => $currentHistory?->resource_url ? 'Online via Web' : 'Kantor Pusat',
                         'interviewer' => $currentHistory?->reviewer ? [
                             'name' => $currentHistory->reviewer->name,
                             'email' => $currentHistory->reviewer->email,
@@ -1117,6 +1124,7 @@ class ApplicationStageController extends Controller
     {
         $application = Application::with([
             'user.candidatesProfile',
+            'user.candidatesCV',
             'vacancyPeriod.vacancy.company',
             'vacancyPeriod.period',
             'history' => function($query) {
@@ -1141,6 +1149,21 @@ class ApplicationStageController extends Controller
             })->count() / $application->userAnswers->count() * 100
             : 0;
 
+        // Debug: Log the data to see what's being sent
+        Log::info('Assessment Detail Data:', [
+            'application_id' => $application->id,
+            'user_answers_count' => $application->userAnswers->count(),
+            'assessment_score' => $assessmentScore,
+            'user_answers' => $application->userAnswers->map(function($answer) {
+                return [
+                    'question_id' => $answer->question_id,
+                    'question_text' => $answer->question->question_text,
+                    'choice_text' => $answer->choice->choice_text,
+                    'is_correct' => $answer->choice->is_correct,
+                ];
+            })
+        ]);
+
         return Inertia::render('admin/company/assessment-detail', [
             'candidate' => [
                 'id' => $application->id,
@@ -1148,6 +1171,9 @@ class ApplicationStageController extends Controller
                     'id' => $application->user->id,
                     'name' => $application->user->name,
                     'email' => $application->user->email,
+                    'cv' => $application->user->candidatesCV ? [
+                        'path' => $application->user->candidatesCV->path,
+                    ] : null,
                     'profile' => $application->user->candidatesProfile ? [
                         'full_name' => $application->user->candidatesProfile->full_name,
                         'phone' => $application->user->candidatesProfile->phone_number,
@@ -1171,25 +1197,57 @@ class ApplicationStageController extends Controller
                         'end_time' => $application->vacancyPeriod->period->end_time,
                     ],
                 ],
+                'history' => $application->history->map(function($history) {
+                    return [
+                        'id' => $history->id,
+                        'status' => [
+                            'name' => $history->status->name,
+                            'code' => $history->status->code,
+                        ],
+                        'notes' => $history->notes,
+                        'score' => $history->score,
+                        'processed_at' => $history->processed_at,
+                        'scheduled_at' => $history->scheduled_at,
+                        'completed_at' => $history->completed_at,
+                        'reviewer' => $history->reviewer ? [
+                            'id' => $history->reviewer->id,
+                            'name' => $history->reviewer->name,
+                            'email' => $history->reviewer->email,
+                        ] : null,
+                    ];
+                }),
                 'stages' => [
                     'psychological_test' => [
                         'status' => $currentHistory?->status->code ?? 'pending',
                         'started_at' => $currentHistory?->processed_at,
                         'completed_at' => $currentHistory?->completed_at,
                         'score' => $assessmentScore,
-                        'answers' => $application->userAnswers->map(fn($answer) => [
-                            'question' => [
-                                'text' => $answer->question->question_text,
-                                'choices' => $answer->question->choices->map(fn($choice) => [
-                                    'text' => $choice->choice_text,
-                                    'is_correct' => $choice->is_correct,
-                                ]),
+                        'answers' => $application->userAnswers->count() > 0 
+                            ? $application->userAnswers->map(fn($answer) => [
+                                'question' => [
+                                    'text' => $answer->question->question_text,
+                                    'choices' => $answer->question->choices->map(fn($choice) => [
+                                        'text' => $choice->choice_text,
+                                        'is_correct' => $choice->is_correct,
+                                    ]),
+                                ],
+                                'selected_answer' => [
+                                    'text' => $answer->choice->choice_text,
+                                    'is_correct' => $answer->choice->is_correct,
+                                ],
+                            ])
+                            : [
+                                [
+                                    'question' => [
+                                        'text' => 'No questions answered yet',
+                                        'choices' => [],
+                                    ],
+                                    'selected_answer' => [
+                                        'text' => 'No answer provided',
+                                        'is_correct' => false,
+                                    ],
+                                ]
                             ],
-                            'selected_answer' => [
-                                'text' => $answer->choice->choice_text,
-                                'is_correct' => $answer->choice->is_correct,
-                            ],
-                        ]),
                     ],
                 ],
             ],
@@ -2209,5 +2267,118 @@ class ApplicationStageController extends Controller
     {
         // Use the existing administrationDetail method which returns the correct data structure
         return $this->administrationDetail($id);
+    }
+
+    /**
+     * Calculate duration between two timestamps
+     */
+    private function calculateDuration($startTime, $endTime)
+    {
+        $start = \Carbon\Carbon::parse($startTime);
+        $end = \Carbon\Carbon::parse($endTime);
+        $duration = $start->diffInMinutes($end);
+        
+        if ($duration < 60) {
+            return $duration . ' Menit';
+        } else {
+            $hours = floor($duration / 60);
+            $minutes = $duration % 60;
+            return $hours . ' Jam ' . $minutes . ' Menit';
+        }
+    }
+
+    /**
+     * Download CV for a candidate
+     */
+    public function downloadCV($id)
+    {
+        $application = Application::with(['user.candidatesCV'])->findOrFail($id);
+        
+        if (!$application->user->candidatesCV) {
+            abort(404, 'CV not found');
+        }
+        
+        $cv = $application->user->candidatesCV;
+        
+        // Check if file exists
+        $filePath = storage_path('app/' . $cv->cv_path);
+        if (!file_exists($filePath)) {
+            // Try alternative path
+            $filePath = public_path($cv->cv_path);
+            if (!file_exists($filePath)) {
+                abort(404, 'CV file not found');
+            }
+        }
+        
+        // Update download count and last downloaded time
+        $cv->increment('download_count');
+        $cv->update(['last_downloaded_at' => now()]);
+        
+        return response()->download($filePath, $cv->cv_filename);
+    }
+
+    /**
+     * Generate CV for a candidate (Admin function)
+     */
+    public function generateCV($id)
+    {
+        try {
+            $application = Application::with(['user'])->findOrFail($id);
+            $user = $application->user;
+            
+            // Get all user data for CV using the same method as CVGeneratorController
+            $userData = $this->getUserDataForCV($user);
+            
+            // Generate PDF using the template
+            $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('cv.template', $userData);
+            $pdf->setPaper('A4', 'portrait');
+            
+            // Create filename
+            $filename = 'CV_' . str_replace(' ', '_', $user->name) . '_' . date('Y-m-d_H-i-s') . '.pdf';
+            
+            // Create directory if not exists
+            $directory = 'cv/' . $user->id;
+            \Illuminate\Support\Facades\Storage::disk('public')->makeDirectory($directory);
+            
+            // Save PDF file
+            $filePath = $directory . '/' . $filename;
+            $pdf->save(storage_path('app/public/' . $filePath));
+            
+            // Save CV record to database
+            $cvRecord = \App\Models\CandidatesCV::create([
+                'user_id' => $user->id,
+                'cv_filename' => $filename,
+                'cv_path' => $filePath,
+                'download_count' => 0,
+                'is_active' => true,
+                'cv_data_snapshot' => json_encode($userData)
+            ]);
+            
+            // Return the generated CV file for download
+            return response()->download(storage_path('app/public/' . $filePath), $filename);
+            
+        } catch (\Exception $e) {
+            abort(500, 'Gagal generate CV: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Get all user data for CV generation (same as CVGeneratorController)
+     */
+    private function getUserDataForCV($user)
+    {
+        return [
+            'user' => $user,
+            'profile' => $user->candidatesProfile,
+            'educations' => $user->candidatesEducations()->with(['educationLevel', 'major'])->get(),
+            'workExperiences' => $user->candidatesWorkExperiences,
+            'skills' => $user->candidatesSkills,
+            'achievements' => $user->candidatesAchievements,
+            'organizations' => $user->candidatesOrganizations,
+            'courses' => $user->candidatesCourses,
+            'certifications' => $user->candidatesCertifications,
+            'languages' => $user->candidatesLanguages,
+            'socialMedia' => $user->candidatesSocialMedia,
+        ];
     }
 }

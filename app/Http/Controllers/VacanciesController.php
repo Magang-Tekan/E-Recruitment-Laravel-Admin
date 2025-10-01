@@ -16,6 +16,8 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Carbon\Carbon;
+use App\Models\Period;
+use App\Models\VacancyPeriods;
 
 class VacanciesController extends Controller
 {
@@ -134,6 +136,7 @@ class VacanciesController extends Controller
                 'education_level_id' => 'nullable|integer|exists:education_levels,id',
                 'vacancy_type_id' => 'required|integer|exists:vacancy_types,id',
                 'job_description' => 'nullable|string|max:1000',
+                'period_id' => 'required|integer|exists:periods,id',
             ]);
             
             Log::info('Validation passed, validated data: ', $validated);
@@ -174,6 +177,14 @@ class VacanciesController extends Controller
             Log::info('Data to be created: ', $createData);
             
             $job = Vacancies::create($createData);
+
+            // Create vacancy-period relationship
+            if ($validated['period_id']) {
+                VacancyPeriods::create([
+                    'vacancy_id' => $job->id,
+                    'period_id' => $validated['period_id'],
+                ]);
+            }
 
             // Load the relationships
             $job->load(['company', 'department', 'major', 'questionPack', 'educationLevel', 'vacancyType']);
@@ -229,6 +240,7 @@ class VacanciesController extends Controller
                 'education_level_id' => 'nullable|integer|exists:education_levels,id',
                 'vacancy_type_id' => 'required|integer|exists:vacancy_types,id',
                 'job_description' => 'nullable|string|max:1000',
+                'period_id' => 'required|integer|exists:periods,id',
             ]);
             
             Log::info('Validation passed, validated data: ', $validated);
@@ -383,6 +395,11 @@ class VacanciesController extends Controller
         $questionPacks = QuestionPack::select('id', 'pack_name', 'description', 'test_type', 'duration')->get();
         $educationLevels = EducationLevel::orderBy('name')->get();
         $vacancyTypes = VacancyType::select('id', 'name')->orderBy('name')->get();
+        
+        // Get open periods (periods that haven't ended yet)
+        $openPeriods = Period::where('end_time', '>', now())
+            ->orderBy('start_time', 'asc')
+            ->get(['id', 'name', 'start_time', 'end_time']);
 
         return Inertia::render('admin/jobs/create', [
             'companies' => $companies,
@@ -391,6 +408,7 @@ class VacanciesController extends Controller
             'questionPacks' => $questionPacks,
             'educationLevels' => $educationLevels,
             'vacancyTypes' => $vacancyTypes,
+            'openPeriods' => $openPeriods,
         ]);
     }
 

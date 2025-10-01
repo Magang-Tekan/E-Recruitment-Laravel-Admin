@@ -117,7 +117,10 @@ export default function InterviewDetail({ candidate }: Props) {
                             <Button 
                                 variant="outline" 
                                 size="sm" 
-                                onClick={() => window.open(candidate.user.cv?.path as string)}
+                                onClick={() => {
+                                    const downloadUrl = `/dashboard/candidates/${candidate.id}/cv/download`;
+                                    window.open(downloadUrl, '_blank');
+                                }}
                             >
                                 <Download className="mr-2 h-4 w-4" />
                                 Download CV

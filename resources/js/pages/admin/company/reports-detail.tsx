@@ -165,7 +165,14 @@ export default function ReportDetail({ candidate }: Props) {
                             </span>
                         )}
                         {candidate.user.cv && (
-                            <Button variant="outline" size="sm" onClick={() => window.open(candidate.user.cv?.path)}>
+                            <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => {
+                                    const downloadUrl = `/dashboard/test-cv-download/${candidate.id}`;
+                                    window.open(downloadUrl, '_blank');
+                                }}
+                            >
                                 <Download className="mr-2 h-4 w-4" />
                                 Download Resume
                             </Button>

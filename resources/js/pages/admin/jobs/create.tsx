@@ -17,6 +17,7 @@ interface CreateJobPageProps {
     questionPacks: { id: number; pack_name: string }[];
     educationLevels: { id: number; name: string }[];
     vacancyTypes: { id: number; name: string }[];
+    openPeriods: { id: number; name: string; start_time: string; end_time: string }[];
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -34,7 +35,7 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-export default function CreateJob({ companies, departments, majors, questionPacks, educationLevels, vacancyTypes }: CreateJobPageProps) {
+export default function CreateJob({ companies, departments, majors, questionPacks, educationLevels, vacancyTypes, openPeriods }: CreateJobPageProps) {
     const [requirements, setRequirements] = useState<string>("");
     const [benefits, setBenefits] = useState<string>("");
 
@@ -49,6 +50,7 @@ export default function CreateJob({ companies, departments, majors, questionPack
         job_description: "",
         question_pack_id: "",
         education_level_id: "",
+        period_id: "",
         requirements: [] as string[],
         benefits: [] as string[],
     });
@@ -211,6 +213,34 @@ export default function CreateJob({ companies, departments, majors, questionPack
                                     </div>
 
                                     <div>
+                                        <Label htmlFor="period">Period *</Label>
+                                        <Select value={data.period_id} onValueChange={(value) => setData('period_id', value)}>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select period" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {openPeriods.length > 0 ? (
+                                                    openPeriods.map((period) => (
+                                                        <SelectItem key={period.id} value={period.id.toString()}>
+                                                            {period.name} ({new Date(period.start_time).toLocaleDateString()} - {new Date(period.end_time).toLocaleDateString()})
+                                                        </SelectItem>
+                                                    ))
+                                                ) : (
+                                                    <SelectItem value="" disabled>
+                                                        No open periods available
+                                                    </SelectItem>
+                                                )}
+                                            </SelectContent>
+                                        </Select>
+                                        {errors.period_id && <p className="text-red-500 text-sm">{errors.period_id}</p>}
+                                        {openPeriods.length === 0 && (
+                                            <p className="text-sm text-yellow-600 mt-1">
+                                                No open periods available. Please create a period first.
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    <div>
                                         <Label htmlFor="question_pack">Question Pack</Label>
                                         <Select value={data.question_pack_id} onValueChange={(value) => setData('question_pack_id', value)}>
                                             <SelectTrigger>
@@ -290,7 +320,7 @@ export default function CreateJob({ companies, departments, majors, questionPack
                                 >
                                     Cancel
                                 </Button>
-                                <Button type="submit" disabled={processing}>
+                                <Button type="submit" disabled={processing || openPeriods.length === 0}>
                                     Create Job
                                 </Button>
                             </div>

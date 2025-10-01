@@ -13,6 +13,7 @@ interface Props {
     candidate: {
         id: number;
         user: {
+            id: number;
             name: string;
             email: string;
             cv?: {
@@ -28,9 +29,17 @@ interface Props {
             } | null;
         };
         vacancy: {
+            id: number;
             title: string;
             company: {
+                id: number;
                 name: string;
+            };
+            period: {
+                id: number;
+                name: string;
+                start_time: string;
+                end_time: string;
             };
         };
         history?: Array<{
@@ -88,6 +97,14 @@ export default function AssessmentDetail({ candidate }: Props) {
 
     const currentHistory = candidate.history?.[0];
     const status = currentHistory?.status;
+
+    // Debug: Log the candidate data to see what's being received
+    console.log('Assessment Detail Candidate Data:', {
+        candidate,
+        psychologicalTest: candidate.stages?.psychological_test,
+        answers: candidate.stages?.psychological_test?.answers,
+        answersCount: candidate.stages?.psychological_test?.answers?.length
+    });
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -163,17 +180,28 @@ export default function AssessmentDetail({ candidate }: Props) {
                                 <div className="mt-2 grid grid-cols-3 gap-4">
                                     <div>
                                         <p className="text-gray-500">Status</p>
-                                        <p className="font-medium">{candidate.stages.psychological_test.status}</p>
+                                        <p className="font-medium">{candidate.stages?.psychological_test?.status || 'Not started'}</p>
                                     </div>
                                     <div>
                                         <p className="text-gray-500">Score</p>
-                                        <p className="font-medium">{Number(candidate.stages.psychological_test.score).toFixed(2)}</p>
+                                        <p className="font-medium">
+                                            {candidate.stages?.psychological_test?.score !== undefined 
+                                                ? Number(candidate.stages.psychological_test.score).toFixed(2) 
+                                                : 'N/A'
+                                            }
+                                        </p>
                                     </div>
                                     <div>
                                         <p className="text-gray-500">Duration</p>
                                         <p className="font-medium">
-                                            {format(new Date(candidate.stages.psychological_test.started_at), 'HH:mm')} -{' '}
-                                            {format(new Date(candidate.stages.psychological_test.completed_at), 'HH:mm')}
+                                            {candidate.stages?.psychological_test?.started_at && candidate.stages?.psychological_test?.completed_at ? (
+                                                <>
+                                                    {format(new Date(candidate.stages.psychological_test.started_at), 'HH:mm')} -{' '}
+                                                    {format(new Date(candidate.stages.psychological_test.completed_at), 'HH:mm')}
+                                                </>
+                                            ) : (
+                                                'Not completed'
+                                            )}
                                         </p>
                                     </div>
                                 </div>
@@ -183,43 +211,54 @@ export default function AssessmentDetail({ candidate }: Props) {
                             <div>
                                 <h3 className="mb-4 font-medium">Answers</h3>
                                 <div className="space-y-4">
-                                    {candidate.stages.psychological_test.answers.map((answer, index) => (
-                                        <div key={index} className="rounded-lg border p-4">
-                                            <div className="flex items-start justify-between">
-                                                <div>
-                                                    <p className="font-medium">Question {index + 1}</p>
-                                                    <p className="mt-2">{answer.question.text}</p>
+                                    {candidate.stages?.psychological_test?.answers && candidate.stages.psychological_test.answers.length > 0 ? (
+                                        candidate.stages.psychological_test.answers.map((answer, index) => (
+                                            <div key={index} className="rounded-lg border p-4">
+                                                <div className="flex items-start justify-between">
+                                                    <div>
+                                                        <p className="font-medium">Question {index + 1}</p>
+                                                        <p className="mt-2">{answer.question.text}</p>
+                                                    </div>
+                                                    {answer.selected_answer.is_correct ? (
+                                                        <CheckCircle2 className="h-6 w-6 text-green-500" />
+                                                    ) : (
+                                                        <XCircle className="h-6 w-6 text-red-500" />
+                                                    )}
                                                 </div>
-                                                {answer.selected_answer.is_correct ? (
-                                                    <CheckCircle2 className="h-6 w-6 text-green-500" />
-                                                ) : (
-                                                    <XCircle className="h-6 w-6 text-red-500" />
-                                                )}
-                                            </div>
-                                            
-                                            <div className="mt-4 space-y-2">
-                                                {answer.question.choices.map((choice, choiceIndex) => {
-                                                    let className = "flex items-center gap-2 rounded-lg p-2 ";
-                                                    if (choice.text === answer.selected_answer.text) {
-                                                        className += choice.is_correct 
-                                                            ? "bg-green-50 text-green-700 font-medium" 
-                                                            : "bg-red-50 text-red-700 font-medium";
-                                                    } else if (choice.is_correct) {
-                                                        className += "bg-green-50 text-green-700";
-                                                    }
+                                                
+                                                <div className="mt-4 space-y-2">
+                                                    {answer.question.choices && answer.question.choices.length > 0 ? (
+                                                        answer.question.choices.map((choice, choiceIndex) => {
+                                                            let className = "flex items-center gap-2 rounded-lg p-2 ";
+                                                            if (choice.text === answer.selected_answer.text) {
+                                                                className += choice.is_correct 
+                                                                    ? "bg-green-50 text-green-700 font-medium" 
+                                                                    : "bg-red-50 text-red-700 font-medium";
+                                                            } else if (choice.is_correct) {
+                                                                className += "bg-green-50 text-green-700";
+                                                            }
 
-                                                    return (
-                                                        <div key={choiceIndex} className={className}>
-                                                            {choice.text === answer.selected_answer.text && (
-                                                                <div className={`h-2 w-2 rounded-full ${choice.is_correct ? 'bg-green-500' : 'bg-red-500'}`} />
-                                                            )}
-                                                            <span>{choice.text}</span>
-                                                        </div>
-                                                    );
-                                                })}
+                                                            return (
+                                                                <div key={choiceIndex} className={className}>
+                                                                    {choice.text === answer.selected_answer.text && (
+                                                                        <div className={`h-2 w-2 rounded-full ${choice.is_correct ? 'bg-green-500' : 'bg-red-500'}`} />
+                                                                    )}
+                                                                    <span>{choice.text}</span>
+                                                                </div>
+                                                            );
+                                                        })
+                                                    ) : (
+                                                        <div className="text-gray-500 italic">No choices available</div>
+                                                    )}
+                                                </div>
                                             </div>
+                                        ))
+                                    ) : (
+                                        <div className="rounded-lg border p-4 text-center text-gray-500">
+                                            <p>No psychological test answers available yet.</p>
+                                            <p className="text-sm mt-1">The candidate may not have completed the test or there was an issue loading the data.</p>
                                         </div>
-                                    ))}
+                                    )}
                                 </div>
                             </div>
                         </div>
