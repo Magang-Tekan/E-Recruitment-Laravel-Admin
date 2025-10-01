@@ -44,14 +44,9 @@ services:
     environment:
       - APP_ENV=local
       - APP_DEBUG=true
-      - DB_CONNECTION=mysql
-      - DB_HOST=mysql
-      - DB_PORT=3306
-      - DB_DATABASE=erecruitment
-      - DB_USERNAME=erecruitment_user
-      - DB_PASSWORD=erecruitment_password
     volumes:
       - .:/var/www/html
+      - ./.env:/var/www/html/.env
       - vendor_data:/var/www/html/vendor
       - node_modules_data:/var/www/html/node_modules
       - build_data:/var/www/html/public/build
