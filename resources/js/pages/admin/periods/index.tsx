@@ -563,53 +563,33 @@ export default function PeriodsDashboard({
     };
 
     const handleCreatePeriod = () => {
+        // Frontend validation
+        if (!newPeriod.name.trim() || !newPeriod.start_time || !newPeriod.end_time) {
+            toast.error('Please fill required fields (name, start date, end date)');
+            return;
+        }
+        if (newPeriod.vacancies_ids.length === 0) {
+            toast.error('Select at least one vacancy');
+            return;
+        }
         setIsLoading(true);
-        
-        // Use different routes based on whether we're on a company page
-        const createUrl = company?.id 
-            ? `/dashboard/companies/${company.id}/periods`
-            : '/dashboard/periods';
-        
+        const createUrl = company?.id ? `/dashboard/companies/${company.id}/periods` : '/dashboard/periods';
+        console.debug('[Periods] Create attempt', { createUrl, payload: newPeriod });
         router.post(createUrl, newPeriod, {
             onSuccess: () => {
-                // Reset form and close dialog
-                setNewPeriod({
-                    name: '',
-                    description: '',
-                    start_time: '',
-                    end_time: '',
-                    vacancies_ids: [],
-                });
+                setNewPeriod({ name: '', description: '', start_time: '', end_time: '', vacancies_ids: [] });
                 setIsAddPeriodDialogOpen(false);
                 setIsLoading(false);
                 toast.success('Period created successfully');
-                
-                // Navigate to refresh the page
                 if (company?.id) {
-                    router.visit(`/dashboard/companies/${company.id}/periods`, {
-                        preserveState: false,
-                        preserveScroll: false
-                    });
+                    router.visit(`/dashboard/companies/${company.id}/periods`, { preserveState: false, preserveScroll: false });
                 } else {
-                    router.visit('/dashboard/periods', {
-                        preserveState: false,
-                        preserveScroll: false
-                    });
+                    router.visit('/dashboard/periods', { preserveState: false, preserveScroll: false });
                 }
             },
             onError: (errors) => {
-                console.error('Create period errors:', errors);
-                let errorMessage = 'Failed to create period. Please check all fields and try again.';
-                
-                if (errors.message) {
-                    errorMessage = errors.message;
-                } else if (errors.errors) {
-                    // Handle validation errors
-                    const errorMessages = Object.values(errors.errors).flat();
-                    errorMessage = errorMessages.join(', ');
-                }
-                
-                toast.error(errorMessage);
+                console.error('[Periods] Create error', errors);
+                toast.error('Failed to create period. Fix validation errors and retry.');
                 setIsLoading(false);
             }
         });
@@ -622,35 +602,23 @@ export default function PeriodsDashboard({
     
     const confirmDeletePeriod = () => {
         if (!deletingPeriodId) return;
-        
         setIsLoading(true);
-        
-        // Use different routes based on whether we're on a company page
-        const deleteUrl = company?.id 
-            ? `/dashboard/companies/${company.id}/periods/${deletingPeriodId}`
-            : `/dashboard/periods/${deletingPeriodId}`;
-        
+        const deleteUrl = company?.id ? `/dashboard/companies/${company.id}/periods/${deletingPeriodId}` : `/dashboard/periods/${deletingPeriodId}`;
+        console.debug('[Periods] Delete attempt', { deleteUrl, deletingPeriodId });
         router.delete(deleteUrl, {
             onSuccess: () => {
                 setIsDeleteDialogOpen(false);
                 setIsLoading(false);
                 setDeletingPeriodId(null);
                 toast.success('Period deleted successfully');
-                
-                // Navigate to refresh the page
                 if (company?.id) {
-                    router.visit(`/dashboard/companies/${company.id}/periods`, {
-                        preserveState: false,
-                        preserveScroll: false
-                    });
+                    router.visit(`/dashboard/companies/${company.id}/periods`, { preserveState: false, preserveScroll: false });
                 } else {
-                    router.visit('/dashboard/periods', {
-                        preserveState: false,
-                        preserveScroll: false
-                    });
+                    router.visit('/dashboard/periods', { preserveState: false, preserveScroll: false });
                 }
             },
-            onError: () => {
+            onError: (err) => {
+                console.error('[Periods] Delete error', err);
                 toast.error('Failed to delete period');
                 setIsLoading(false);
                 setDeletingPeriodId(null);
@@ -660,50 +628,39 @@ export default function PeriodsDashboard({
 
     // Handle the update submission
     const handleUpdatePeriod = () => {
-        if (!editingPeriodId) return;
-        
+        if (!editingPeriodId) {
+            toast.error('No period selected for update');
+            return;
+        }
+        if (!editFormData.name.trim() || !editFormData.start_time || !editFormData.end_time) {
+            toast.error('Please fill required fields (name, start date, end date)');
+            return;
+        }
+        if (editFormData.vacancies_ids.length === 0) {
+            toast.error('Select at least one vacancy');
+            return;
+        }
         setIsLoading(true);
-        
-        // Use different routes based on whether we're on a company page
-        const updateUrl = company?.id 
-            ? `/dashboard/companies/${company.id}/periods/${editingPeriodId}`
-            : `/dashboard/periods/${editingPeriodId}`;
-            
+        const updateUrl = company?.id ? `/dashboard/companies/${company.id}/periods/${editingPeriodId}` : `/dashboard/periods/${editingPeriodId}`;
+        console.debug('[Periods] Update attempt', { updateUrl, editingPeriodId, payload: editFormData });
         router.put(updateUrl, editFormData, {
             onSuccess: () => {
                 setIsEditDialogOpen(false);
                 setEditingPeriodId(null);
                 setIsLoading(false);
                 toast.success('Period updated successfully');
-                
-                // Navigate to refresh the page
                 if (company?.id) {
-                    router.visit(`/dashboard/companies/${company.id}/periods`, {
-                        preserveState: false,
-                        preserveScroll: false
-                    });
+                    router.visit(`/dashboard/companies/${company.id}/periods`, { preserveState: false, preserveScroll: false });
                 } else {
-                    router.visit('/dashboard/periods', {
-                        preserveState: false,
-                        preserveScroll: false
-                    });
+                    router.visit('/dashboard/periods', { preserveState: false, preserveScroll: false });
                 }
             },
             onError: (errors) => {
-                console.error('Update period errors:', errors);
-                let errorMessage = 'Failed to update period. Please check all fields and try again.';
-                
-                if (errors.message) {
-                    errorMessage = errors.message;
-                } else if (errors.errors) {
-                    // Handle validation errors
-                    const errorMessages = Object.values(errors.errors).flat();
-                    errorMessage = errorMessages.join(', ');
-                }
-                
-                toast.error(errorMessage);
+                console.error('[Periods] Update error', errors);
+                toast.error('Failed to update period. Please check all fields and try again.');
                 setIsLoading(false);
-            }
+            },
+            preserveScroll: true
         });
     };
 
