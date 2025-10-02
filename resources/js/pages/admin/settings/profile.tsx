@@ -24,12 +24,20 @@ interface ProfileForm {
     email: string;
 }
 
-export default function Profile({ mustVerifyEmail, status }: { mustVerifyEmail: boolean; status?: string }) {
+export default function Profile({ mustVerifyEmail, status, user }: { mustVerifyEmail: boolean; status?: string; user?: any }) {
     const { auth } = usePage<SharedData>().props;
 
+    // Use explicitly passed user data if available, otherwise fall back to auth.user
+    const currentUser = user || auth.user;
+    
+    // Debug logging (remove in production)
+    // console.log('Profile Page - Auth User:', auth.user);
+    // console.log('Profile Page - Passed User:', user);
+    // console.log('Profile Page - Current User:', currentUser);
+
     const { data, setData, patch, errors, processing, recentlySuccessful } = useForm<Required<ProfileForm>>({
-        name: auth.user.name,
-        email: auth.user.email,
+        name: currentUser.name,
+        email: currentUser.email,
     });
 
     const submit: FormEventHandler = (e) => {
@@ -82,7 +90,7 @@ export default function Profile({ mustVerifyEmail, status }: { mustVerifyEmail: 
                             <InputError className="mt-2" message={errors.email} />
                         </div>
 
-                        {mustVerifyEmail && auth.user.email_verified_at === null && (
+                        {mustVerifyEmail && currentUser.email_verified_at === null && (
                             <div>
                                 <p className="text-muted-foreground -mt-4 text-sm">
                                     Your email address is unverified.{' '}

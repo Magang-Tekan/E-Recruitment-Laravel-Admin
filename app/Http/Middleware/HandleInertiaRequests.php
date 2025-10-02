@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Inertia\Middleware;
 use Tighten\Ziggy\Ziggy;
 
@@ -39,12 +40,24 @@ class HandleInertiaRequests extends Middleware
     {
         [$message, $author] = str(Inspiring::quotes()->random())->explode('-');
 
+        $user = $request->user();
+        
+        // Debug logging for middleware (remove in production)
+        // if ($user) {
+        //     Log::info('HandleInertiaRequests - Sharing user data:', [
+        //         'id' => $user->id,
+        //         'name' => $user->name,
+        //         'email' => $user->email,
+        //         'role' => $user->role->value ?? 'no role'
+        //     ]);
+        // }
+
         return [
             ...parent::share($request),
             'name' => config('app.name'),
             'quote' => ['message' => trim($message), 'author' => trim($author)],
             'auth' => [
-                'user' => $request->user(),
+                'user' => $user,
             ],
             'ziggy' => fn (): array => [
                 ...(new Ziggy)->toArray(),
