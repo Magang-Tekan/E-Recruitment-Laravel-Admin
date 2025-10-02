@@ -31,11 +31,12 @@ jobs:
           script: |
             cd /root/project/E-Recruitment-Laravel-Admin
             
-            # Stop containers without removing volumes (preserves database data)
-            docker compose down --remove-orphans
+            # Stop only app and phpmyadmin containers, keep MySQL running
+            docker compose stop app phpmyadmin
+            docker compose rm -f app phpmyadmin
             
             # Backup database before deployment (optional but recommended)
-            if docker ps -a --format "table {{.Names}}" | grep -q "erecruitment_mysql"; then
+            if docker ps --format "table {{.Names}}" | grep -q "erecruitment_mysql"; then
               echo "Creating database backup..."
               docker compose exec -T mysql mysqldump -u root -proot_password erecruitment > backup_$(date +%Y%m%d_%H%M%S).sql
             fi
@@ -49,8 +50,8 @@ jobs:
             # Build application container only (skip mysql to preserve data)
             docker compose build --no-cache --pull app
             
-            # Start services (mysql will use existing volume if available)
-            docker compose up -d
+            # Start only app and phpmyadmin (mysql is already running)
+            docker compose up -d app phpmyadmin
             
             # Wait for services to be ready
             sleep 30
