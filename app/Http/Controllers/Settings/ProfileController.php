@@ -21,31 +21,26 @@ class ProfileController extends Controller
     public function edit(Request $request): Response
     {
         $authUser = Auth::user();
-        // Log::info('Auth ID:', ['id' => Auth::id()]);
-        // Log::info('Database role:', ['role' => $authUser->role]);
-        // Log::info('Enum HR value:', ['value' => UserRole::HR->value]);
+        
+        // Debug logging to check user data (remove in production)
+        // Log::info('Profile Controller - Auth User ID:', ['id' => $authUser->id]);
+        // Log::info('Profile Controller - Auth User Name:', ['name' => $authUser->name]);
+        // Log::info('Profile Controller - Auth User Email:', ['email' => $authUser->email]);
+        // Log::info('Profile Controller - Auth User Role:', ['role' => $authUser->role->value]);
 
-        // Log::info($authUser);
-        // return Inertia::render('admin/settings/profile', [
-        //     'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
-        //     'status'          => $request->session()->get('status'),
-        // ]);
         if ($authUser->role->value == UserRole::HR->value) {
             return Inertia::render('admin/settings/profile', [
                 'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
                 'status' => $request->session()->get('status'),
+                'user' => $authUser, // Explicitly pass user data
             ]);
         } else {
             return Inertia::render('candidate/settings/password', [
                 'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
                 'status' => $request->session()->get('status'),
+                'user' => $authUser, // Explicitly pass user data
             ]);
         }
-
-        // return Inertia::render('admin/settings/profile', [
-        //     'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
-        //     'status' => $request->session()->get('status'),
-        // ]);
     }
 
     /**
@@ -53,13 +48,23 @@ class ProfileController extends Controller
      */
     public function update(ProfileUpdateRequest $request): RedirectResponse
     {
-        $request->user()->fill($request->validated());
+        $user = $request->user();
+        
+        // Debug logging for update (remove in production)
+        // Log::info('Profile Update - User ID:', ['id' => $user->id]);
+        // Log::info('Profile Update - User Name:', ['name' => $user->name]);
+        // Log::info('Profile Update - User Email:', ['email' => $user->email]);
+        // Log::info('Profile Update - Validated Data:', $request->validated());
 
-        if ($request->user()->isDirty('email')) {
-            $request->user()->email_verified_at = null;
+        $user->fill($request->validated());
+
+        if ($user->isDirty('email')) {
+            $user->email_verified_at = null;
         }
 
-        $request->user()->save();
+        $user->save();
+        
+        // Log::info('Profile Update - User saved successfully');
 
         return to_route('profile.edit');
     }
