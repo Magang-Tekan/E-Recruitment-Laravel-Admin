@@ -31,29 +31,46 @@ jobs:
           script: |
             cd /root/project/E-Recruitment-Laravel-Admin
             
-            # Hapus semua container dan volume yang tidak digunakan
-            docker compose down --volumes --remove-orphans
+            # Stop containers without removing volumes (preserves database data)
+            docker compose down --remove-orphans
             
-            # Hapus semua image yang tidak digunakan
+            # Backup database before deployment (optional but recommended)
+            if docker ps -a --format "table {{.Names}}" | grep -q "erecruitment_mysql"; then
+              echo "Creating database backup..."
+              docker compose exec -T mysql mysqldump -u root -proot_password erecruitment > backup_$(date +%Y%m%d_%H%M%S).sql
+            fi
+            
+            # Clean up only unused images (not volumes)
             docker image prune -af
             
-            # Hapus semua volume yang tidak digunakan
+            # Remove only dangling volumes (not named volumes with data)
             docker volume prune -f
             
-            # Build ulang dengan no-cache
-            docker compose build --no-cache --pull
+            # Build application container only (skip mysql to preserve data)
+            docker compose build --no-cache --pull app
             
-            # Jalankan dengan compose yang sudah diperbaiki
+            # Start services (mysql will use existing volume if available)
             docker compose up -d
             
-            # Tunggu aplikasi siap
+            # Wait for services to be ready
             sleep 30
             
-            # Clear cache Laravel
+            # Wait for MySQL to be ready before running Laravel commands
+            echo "Waiting for MySQL to be ready..."
+            until docker compose exec mysql mysqladmin ping -h localhost --silent; do
+              echo "Waiting for MySQL..."
+              sleep 3
+            done
+            
+            # Run migrations safely (won't delete existing data)
+            docker compose exec app php artisan migrate --force
+            
+            # Clear Laravel caches
             docker compose exec app php artisan config:clear
             docker compose exec app php artisan cache:clear
             docker compose exec app php artisan view:clear
             docker compose exec app php artisan route:clear
+            docker compose exec app php artisan config:cache
             
-            # Cleanup sistem
-            docker system prune -af
+            # Clean up only unused containers and images (preserve volumes)
+            docker system prune -f --volumes=false
