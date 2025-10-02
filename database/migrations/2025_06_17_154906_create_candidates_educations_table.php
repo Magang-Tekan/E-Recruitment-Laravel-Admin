@@ -18,7 +18,7 @@ return new class extends Migration
             $table->string('faculty');
             $table->foreignId('major_id')->constrained('master_majors');
             $table->string('institution_name');
-            $table->decimal('gpa', 3, 2);
+            $table->decimal('gpa', 6, 2);
             $table->year('year_in');
             $table->year('year_out')->nullable();
             $table->timestamps();
