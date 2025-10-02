@@ -22,7 +22,6 @@ import { Head, router } from '@inertiajs/react';
 import { Plus, Search } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import axios from 'axios';
 
 // Add type for the company prop
 type Company = {
@@ -563,23 +562,11 @@ export default function PeriodsDashboard({
         }
     };
 
-    const handleCreatePeriod = async () => {
+    const handleCreatePeriod = () => {
         setIsLoading(true);
-        
-        try {
-            // Use axios to handle the JSON response properly
-            const response = await axios.post('/dashboard/periods', newPeriod, {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
-                }
-            });
-            
-            // Check if the response indicates success
-            if (response.data.success || response.status === 200 || response.status === 201) {
-                // Reset form and close dialog first
+        router.post('/dashboard/periods', newPeriod, {
+            onSuccess: () => {
+                // Reset form and close dialog
                 setNewPeriod({
                     name: '',
                     description: '',
@@ -589,49 +576,37 @@ export default function PeriodsDashboard({
                 });
                 setIsAddPeriodDialogOpen(false);
                 setIsLoading(false);
+                toast.success('Period created successfully');
                 
-                // Show success message
-                toast.success(response.data.message || 'Period created successfully');
+                // Navigate to refresh the page
+                if (company?.id) {
+                    router.visit(`/dashboard/companies/${company.id}/periods`, {
+                        preserveState: false,
+                        preserveScroll: false
+                    });
+                } else {
+                    router.visit('/dashboard/periods', {
+                        preserveState: false,
+                        preserveScroll: false
+                    });
+                }
+            },
+            onError: (errors) => {
+                console.error('Create period errors:', errors);
+                let errorMessage = 'Failed to create period. Please check all fields and try again.';
                 
-                // Use a small delay to ensure state is updated before navigation
-                setTimeout(() => {
-                    if (company?.id) {
-                        // For company periods, navigate to the same company periods page
-                        router.visit(`/dashboard/companies/${company.id}/periods`, {
-                            preserveState: false,
-                            preserveScroll: false
-                        });
-                    } else {
-                        // For general periods, navigate to periods page
-                        router.visit('/dashboard/periods', {
-                            preserveState: false,
-                            preserveScroll: false
-                        });
-                    }
-                }, 100);
-            } else {
-                throw new Error(response.data.message || 'Unknown error occurred');
+                if (errors.message) {
+                    errorMessage = errors.message;
+                } else if (errors.errors) {
+                    // Handle validation errors
+                    const errorMessages = Object.values(errors.errors).flat();
+                    errorMessage = errorMessages.join(', ');
+                }
+                
+                toast.error(errorMessage);
+                setIsLoading(false);
             }
-        } catch (error: any) {
-            console.error('Create period error:', error);
-            
-            let errorMessage = 'Failed to create period. Please check all fields and try again.';
-            
-            if (error.response?.data?.message) {
-                errorMessage = error.response.data.message;
-            } else if (error.response?.data?.errors) {
-                // Handle validation errors
-                const errorMessages = Object.values(error.response.data.errors).flat();
-                errorMessage = errorMessages.join(', ');
-            } else if (error.message) {
-                errorMessage = error.message;
-            }
-            
-            toast.error(errorMessage);
-        } finally {
-            // Always ensure loading state is reset
-            setIsLoading(false);
-        }
+        });
     };
 
     const handleDeletePeriod = (periodId: string) => {
@@ -672,71 +647,48 @@ export default function PeriodsDashboard({
     };
 
     // Handle the update submission
-    const handleUpdatePeriod = async () => {
+    const handleUpdatePeriod = () => {
         if (!editingPeriodId) return;
         
         setIsLoading(true);
-        
-        try {
-            // Use axios to handle the JSON response properly
-            const response = await axios.put(`/dashboard/periods/${editingPeriodId}`, editFormData, {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
-                }
-            });
+        const url = `/dashboard/periods/${editingPeriodId}`;
             
-            // Check if the response indicates success
-            if (response.data.success || response.status === 200 || response.status === 201) {
-                // Close dialog and reset state first
+        router.put(url, editFormData, {
+            onSuccess: () => {
                 setIsEditDialogOpen(false);
                 setEditingPeriodId(null);
                 setIsLoading(false);
+                toast.success('Period updated successfully');
                 
-                // Show success message
-                toast.success(response.data.message || 'Period updated successfully');
+                // Navigate to refresh the page
+                if (company?.id) {
+                    router.visit(`/dashboard/companies/${company.id}/periods`, {
+                        preserveState: false,
+                        preserveScroll: false
+                    });
+                } else {
+                    router.visit('/dashboard/periods', {
+                        preserveState: false,
+                        preserveScroll: false
+                    });
+                }
+            },
+            onError: (errors) => {
+                console.error('Update period errors:', errors);
+                let errorMessage = 'Failed to update period. Please check all fields and try again.';
                 
-                // Use a small delay to ensure state is updated before navigation
-                setTimeout(() => {
-                    if (company?.id) {
-                        // For company periods, navigate to the same company periods page
-                        router.visit(`/dashboard/companies/${company.id}/periods`, {
-                            preserveState: false,
-                            preserveScroll: false
-                        });
-                    } else {
-                        // For general periods, navigate to periods page
-                        router.visit('/dashboard/periods', {
-                            preserveState: false,
-                            preserveScroll: false
-                        });
-                    }
-                }, 100);
-            } else {
-                throw new Error(response.data.message || 'Unknown error occurred');
+                if (errors.message) {
+                    errorMessage = errors.message;
+                } else if (errors.errors) {
+                    // Handle validation errors
+                    const errorMessages = Object.values(errors.errors).flat();
+                    errorMessage = errorMessages.join(', ');
+                }
+                
+                toast.error(errorMessage);
+                setIsLoading(false);
             }
-        } catch (error: any) {
-            console.error('Update period error:', error);
-            
-            let errorMessage = 'Failed to update period. Please check all fields and try again.';
-            
-            if (error.response?.data?.message) {
-                errorMessage = error.response.data.message;
-            } else if (error.response?.data?.errors) {
-                // Handle validation errors
-                const errorMessages = Object.values(error.response.data.errors).flat();
-                errorMessage = errorMessages.join(', ');
-            } else if (error.message) {
-                errorMessage = error.message;
-            }
-            
-            toast.error(errorMessage);
-        } finally {
-            // Always ensure loading state is reset
-            setIsLoading(false);
-        }
+        });
     };
 
     // Handler for navigating to administration based on period

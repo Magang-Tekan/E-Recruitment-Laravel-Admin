@@ -414,16 +414,12 @@ class PeriodController extends Controller
             // Sync vacancies
             $period->vacancies()->sync($validated['vacancies_ids']);
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Period updated successfully'
-            ]);
+            return redirect()->back()->with('success', 'Period updated successfully');
         } catch (\Exception $e) {
             Log::error('Failed to update period: ' . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to update period'
-            ], 500);
+            return redirect()->back()
+                ->with('error', 'Failed to update period')
+                ->withErrors(['error' => 'An error occurred while updating the period']);
         }
     }
 
