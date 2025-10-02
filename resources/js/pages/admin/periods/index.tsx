@@ -22,6 +22,7 @@ import { Head, router } from '@inertiajs/react';
 import { Plus, Search } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import axios from 'axios';
 
 // Add type for the company prop
 type Company = {
@@ -499,11 +500,14 @@ export default function PeriodsDashboard({
     const handleViewPeriod = (periodId: string) => {
         const period = periods.find(p => p.id === periodId);
         if (period) {
+            // Handle both possible property names for vacancies
+            const vacanciesData = period.vacanciesList || (period as any).vacancies_list || [];
+            
             handleViewDescription({
                 description: period.description || 'No description available',
                 title: period.title,
                 department: period.department,
-                vacanciesList: period.vacanciesList
+                vacanciesList: vacanciesData
             });
         }
     };
@@ -516,10 +520,11 @@ export default function PeriodsDashboard({
         vacanciesList?: VacancyItem[];
     }) => {
         setCurrentDescription(period.description);
+        const vacanciesData = period.vacanciesList || [];
         setCurrentPeriodDetails({
             title: period.title || '-',
             department: period.department || '-',
-            vacancies: period.vacanciesList || [],
+            vacancies: vacanciesData,
         });
         setIsViewDialogOpen(true);
     };
@@ -540,21 +545,39 @@ export default function PeriodsDashboard({
         const period = periods.find(p => p.id === periodId);
         if (period) {
             setEditingPeriodId(periodId);
+            
+            // Handle both possible property names for vacancies
+            const vacanciesData = period.vacanciesList || (period as any).vacancies_list || [];
+            const vacanciesIds = Array.isArray(vacanciesData) 
+                ? vacanciesData.map(v => String(v.id)) 
+                : [];
+            
             setEditFormData({
                 name: period.name,
                 description: period.description,
                 start_time: formatDateForInput(period.startTime),
                 end_time: formatDateForInput(period.endTime),
-                vacancies_ids: period.vacanciesList?.map(v => String(v.id)) || []
+                vacancies_ids: vacanciesIds
             });
             setIsEditDialogOpen(true);
         }
     };
 
-    const handleCreatePeriod = () => {
+    const handleCreatePeriod = async () => {
         setIsLoading(true);
-        router.post('/dashboard/periods', newPeriod, {
-            onSuccess: () => {
+        
+        try {
+            // Use axios to handle the JSON response properly
+            const response = await axios.post('/dashboard/periods', newPeriod, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+                }
+            });
+            
+            if (response.data.success) {
                 // Reset form and close dialog
                 setNewPeriod({
                     name: '',
@@ -564,15 +587,26 @@ export default function PeriodsDashboard({
                     vacancies_ids: [],
                 });
                 setIsAddPeriodDialogOpen(false);
-                setIsLoading(false);
-                // router.reload();
-                router.visit(`/dashboard/companies/${company?.id}/periods`);
-            },
-            onError: () => {
-                toast.error('Failed to create period. Please check all fields and try again.');
-                setIsLoading(false);
+                toast.success(response.data.message || 'Period created successfully');
+                
+                // Reload the current page to reflect changes
+                router.reload({ only: ['periods'] });
             }
-        });
+        } catch (error: any) {
+            console.error('Create period error:', error);
+            
+            if (error.response?.data?.message) {
+                toast.error(error.response.data.message);
+            } else if (error.response?.data?.errors) {
+                // Handle validation errors
+                const errorMessages = Object.values(error.response.data.errors).flat();
+                toast.error(errorMessages.join(', '));
+            } else {
+                toast.error('Failed to create period. Please check all fields and try again.');
+            }
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const handleDeletePeriod = (periodId: string) => {
@@ -600,32 +634,45 @@ export default function PeriodsDashboard({
     };
 
     // Handle the update submission
-    const handleUpdatePeriod = () => {
+    const handleUpdatePeriod = async () => {
         if (!editingPeriodId) return;
         
         setIsLoading(true);
-        const url = `/dashboard/periods/${editingPeriodId}`;
-            
-        router.put(url, editFormData, {
-            onSuccess: () => {
-                setIsEditDialogOpen(false);
-                setIsLoading(false);
-                setEditingPeriodId(null);
-                toast.success('Period updated successfully');
-                
-                // Redirect back to the correct company periods page if we're in company context
-                if (company?.id) {
-                    router.visit(`/dashboard/companies/${company.id}/periods`);
-                } else {
-                    router.visit('/dashboard/periods');
+        
+        try {
+            // Use axios to handle the JSON response properly
+            const response = await axios.put(`/dashboard/periods/${editingPeriodId}`, editFormData, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
                 }
-            },
-            onError: () => {
+            });
+            
+            if (response.data.success) {
+                setIsEditDialogOpen(false);
+                setEditingPeriodId(null);
+                toast.success(response.data.message || 'Period updated successfully');
+                
+                // Reload the current page to reflect changes
+                router.reload({ only: ['periods'] });
+            }
+        } catch (error: any) {
+            console.error('Update period error:', error);
+            
+            if (error.response?.data?.message) {
+                toast.error(error.response.data.message);
+            } else if (error.response?.data?.errors) {
+                // Handle validation errors
+                const errorMessages = Object.values(error.response.data.errors).flat();
+                toast.error(errorMessages.join(', '));
+            } else {
                 toast.error('Failed to update period. Please check all fields and try again.');
-                setIsLoading(false);
-            },
-            preserveScroll: true
-        });
+            }
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     // Handler for navigating to administration based on period
