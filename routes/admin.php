@@ -79,7 +79,7 @@ Route::middleware(['auth', 'verified', 'role:' . UserRole::HR->value])
 
         // Question Management
         Route::prefix('questions')->name('questions.')->group(function () {
-            Route::get('/', [QuestionController::class, 'index'])->name('question-set');
+            Route::get('/', [QuestionController::class, 'index'])->name('index');
             Route::get('/questions-set', [QuestionController::class, 'index'])->name('question-set');
             Route::get('/questions-set/add-questions', [QuestionController::class, 'create'])->name('create');
             Route::get('/questions-set/view/{question}', [QuestionController::class, 'show'])->name('show');

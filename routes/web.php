@@ -50,6 +50,13 @@ Route::middleware(['auth'])->group(function () {
             Route::put('/{company}', [CompanyController::class, 'update'])->name('update');
             Route::delete('/{company}', [CompanyController::class, 'destroy'])->name('destroy');
             Route::get('/{company}/periods', [CompanyController::class, 'periods'])->name('periods');
+            
+            // Company-specific period routes
+            Route::prefix('{company}/periods')->name('periods.')->group(function () {
+                Route::post('/', [PeriodController::class, 'store'])->name('store');
+                Route::put('/{period}', [PeriodController::class, 'update'])->name('update');
+                Route::delete('/{period}', [PeriodController::class, 'destroy'])->name('destroy');
+            });
         });
     });
 });

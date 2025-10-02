@@ -187,6 +187,13 @@ class PeriodController extends Controller
 
     public function store(Request $request)
     {
+        // Log memory usage for debugging production 502 errors
+        Log::info('Period store request started', [
+            'memory_usage' => memory_get_usage(true),
+            'memory_peak' => memory_get_peak_usage(true),
+            'company_id' => $request->route('company')
+        ]);
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
@@ -197,19 +204,39 @@ class PeriodController extends Controller
         ]);
 
         try {
-        // Create new period
-        $period = Period::create([
-            'name' => $validated['name'],
-            'description' => $validated['description'],
-            'start_time' => $validated['start_time'],
-            'end_time' => $validated['end_time'],
-        ]);
-        
-        // Attach vacancies to this period
-        $period->vacancies()->attach($validated['vacancies_ids']);
-        
+            // Create new period
+            $period = Period::create([
+                'name' => $validated['name'],
+                'description' => $validated['description'],
+                'start_time' => $validated['start_time'],
+                'end_time' => $validated['end_time'],
+            ]);
+            
+            // Attach vacancies to this period
+            $period->vacancies()->attach($validated['vacancies_ids']);
+            
+            Log::info('Period created successfully', [
+                'period_id' => $period->id,
+                'memory_usage' => memory_get_usage(true),
+                'memory_peak' => memory_get_peak_usage(true)
+            ]);
+            
+            // Check if this is a company-specific request (from company periods page)
+            $companyId = $request->route('company');
+            if ($companyId) {
+                // Redirect back to company periods page
+                return redirect()->route('companies.periods', ['company' => $companyId])
+                    ->with('success', 'Period created successfully');
+            }
+            
             return redirect()->back()->with('success', 'Period created successfully');
         } catch (\Exception $e) {
+            Log::error('Failed to create period', [
+                'error' => $e->getMessage(),
+                'memory_usage' => memory_get_usage(true),
+                'memory_peak' => memory_get_peak_usage(true)
+            ]);
+            
             return redirect()->back()
                 ->with('error', 'Failed to create period')
                 ->withErrors(['error' => 'An error occurred while creating the period']);
@@ -414,6 +441,14 @@ class PeriodController extends Controller
             // Sync vacancies
             $period->vacancies()->sync($validated['vacancies_ids']);
 
+            // Check if this is a company-specific request (from company periods page)
+            $companyId = $request->route('company');
+            if ($companyId) {
+                // Redirect back to company periods page
+                return redirect()->route('companies.periods', ['company' => $companyId])
+                    ->with('success', 'Period updated successfully');
+            }
+
             return redirect()->back()->with('success', 'Period updated successfully');
         } catch (\Exception $e) {
             Log::error('Failed to update period: ' . $e->getMessage());
@@ -423,10 +458,19 @@ class PeriodController extends Controller
         }
     }
 
-    public function destroy(Period $period)
+    public function destroy(Request $request, Period $period)
     {
         try {
-        $period->delete();
+            $period->delete();
+            
+            // Check if this is a company-specific request (from company periods page)
+            $companyId = $request->route('company');
+            if ($companyId) {
+                // Redirect back to company periods page
+                return redirect()->route('companies.periods', ['company' => $companyId])
+                    ->with('success', 'Period deleted successfully');
+            }
+            
             return redirect()->back()->with('success', 'Period deleted successfully');
         } catch (\Exception $e) {
             return redirect()->back()

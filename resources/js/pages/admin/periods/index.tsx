@@ -564,7 +564,13 @@ export default function PeriodsDashboard({
 
     const handleCreatePeriod = () => {
         setIsLoading(true);
-        router.post('/dashboard/periods', newPeriod, {
+        
+        // Use different routes based on whether we're on a company page
+        const createUrl = company?.id 
+            ? `/dashboard/companies/${company.id}/periods`
+            : '/dashboard/periods';
+        
+        router.post(createUrl, newPeriod, {
             onSuccess: () => {
                 // Reset form and close dialog
                 setNewPeriod({
@@ -618,7 +624,13 @@ export default function PeriodsDashboard({
         if (!deletingPeriodId) return;
         
         setIsLoading(true);
-        router.delete(`/dashboard/periods/${deletingPeriodId}`, {
+        
+        // Use different routes based on whether we're on a company page
+        const deleteUrl = company?.id 
+            ? `/dashboard/companies/${company.id}/periods/${deletingPeriodId}`
+            : `/dashboard/periods/${deletingPeriodId}`;
+        
+        router.delete(deleteUrl, {
             onSuccess: () => {
                 setIsDeleteDialogOpen(false);
                 setIsLoading(false);
@@ -651,9 +663,13 @@ export default function PeriodsDashboard({
         if (!editingPeriodId) return;
         
         setIsLoading(true);
-        const url = `/dashboard/periods/${editingPeriodId}`;
+        
+        // Use different routes based on whether we're on a company page
+        const updateUrl = company?.id 
+            ? `/dashboard/companies/${company.id}/periods/${editingPeriodId}`
+            : `/dashboard/periods/${editingPeriodId}`;
             
-        router.put(url, editFormData, {
+        router.put(updateUrl, editFormData, {
             onSuccess: () => {
                 setIsEditDialogOpen(false);
                 setEditingPeriodId(null);
