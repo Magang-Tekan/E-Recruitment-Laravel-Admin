@@ -10,9 +10,23 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 
 class PeriodController extends Controller
 {
+    /**
+     * Normalize incoming date string which might be in either Y-m-d (HTML date input)
+     * or d/m/Y (legacy formatted output) into a Carbon instance.
+     */
+    private function normalizeDate(string $value): Carbon
+    {
+        // If contains slash assume d/m/Y
+        if (str_contains($value, '/')) {
+            return Carbon::createFromFormat('d/m/Y', $value);
+        }
+        // Fallback to Carbon parser (expects Y-m-d or full datetime)
+        return Carbon::parse($value);
+    }
     public function index(Request $request)
     {
         $companyId = $request->query('companyId');
@@ -40,12 +54,24 @@ class PeriodController extends Controller
         }
         
         $periods = $periodsQuery->get();
+
+        // Pre-compute application counts grouped by period (and optionally company) to avoid per-period queries
+        $applicationCountsQuery = Application::query()
+            ->selectRaw('vacancy_periods.period_id as period_id, COUNT(applications.id) as total')
+            ->join('vacancy_periods', 'applications.vacancy_period_id', '=', 'vacancy_periods.id')
+            ->join('vacancies', 'vacancy_periods.vacancy_id', '=', 'vacancies.id');
+        if ($companyId) {
+            $applicationCountsQuery->where('vacancies.company_id', $companyId);
+        }
+        $applicationCounts = $applicationCountsQuery
+            ->groupBy('vacancy_periods.period_id')
+            ->pluck('total', 'period_id');
         
         // Get current date for status checking
         $now = Carbon::now();
         
         // Format the data to include dates from the associated vacancies
-        $periodsData = $periods->map(function ($period) use ($now, $companyId) {
+    $periodsData = $periods->map(function ($period) use ($now, $companyId, $applicationCounts) {
             $data = $period->toArray();
             
             // Add start_time and end_time
@@ -104,20 +130,7 @@ class PeriodController extends Controller
                     })->values()->toArray();
                     
                     // Count applicants for this period (filtered by company if specified)
-                    if ($companyId) {
-                        // Count applications for this period and company combination
-                        $data['applicants_count'] = Application::whereHas('vacancyPeriod', function($query) use ($period) {
-                            $query->where('period_id', $period->id);
-                        })
-                        ->whereHas('vacancyPeriod.vacancy', function($query) use ($companyId) {
-                            $query->where('company_id', $companyId);
-                        })->count();
-                    } else {
-                        // Count all applications for this period
-                        $data['applicants_count'] = Application::whereHas('vacancyPeriod', function($query) use ($period) {
-                            $query->where('period_id', $period->id);
-                        })->count();
-                    }
+                    $data['applicants_count'] = (int) ($applicationCounts[$period->id] ?? 0);
                 } else {
                     // No relevant vacancies for this company
                     $data['title'] = null;
@@ -187,58 +200,62 @@ class PeriodController extends Controller
 
     public function store(Request $request)
     {
-        // Log memory usage for debugging production 502 errors
-        Log::info('Period store request started', [
-            'memory_usage' => memory_get_usage(true),
-            'memory_peak' => memory_get_peak_usage(true),
-            'company_id' => $request->route('company')
-        ]);
-
+        /**
+         * Frontend reference:
+         *   React component: admin/periods/index (PeriodsDashboard) -> handleCreatePeriod (axios POST /dashboard/periods)
+         *   Expects JSON: { success: boolean, message?: string }
+         *   So we must return JSON for XHR / Inertia partial reload requests to avoid 502 / parsing issues.
+         */
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'vacancies_ids' => 'required|array',
+            'vacancies_ids' => 'required|array|min:1',
             'vacancies_ids.*' => 'exists:vacancies,id',
-            'start_time' => 'required|date',
-            'end_time' => 'required|date|after:start_time',
+            'start_time' => 'required', // Accept multiple formats then normalize
+            'end_time' => 'required|after:start_time',
         ]);
 
         try {
-            // Create new period
-            $period = Period::create([
-                'name' => $validated['name'],
-                'description' => $validated['description'],
-                'start_time' => $validated['start_time'],
-                'end_time' => $validated['end_time'],
-            ]);
-            
-            // Attach vacancies to this period
-            $period->vacancies()->attach($validated['vacancies_ids']);
-            
-            Log::info('Period created successfully', [
-                'period_id' => $period->id,
-                'memory_usage' => memory_get_usage(true),
-                'memory_peak' => memory_get_peak_usage(true)
-            ]);
-            
-            // Check if this is a company-specific request (from company periods page)
-            $companyId = $request->route('company');
-            if ($companyId) {
-                // Redirect back to company periods page
-                return redirect()->route('companies.periods', ['company' => $companyId])
-                    ->with('success', 'Period created successfully');
+            $start = $this->normalizeDate($validated['start_time'])->startOfDay();
+            $end = $this->normalizeDate($validated['end_time'])->endOfDay();
+
+            DB::transaction(function () use (&$period, $validated, $start, $end) {
+                $period = Period::create([
+                    'name' => $validated['name'],
+                    'description' => $validated['description'] ?? null,
+                    'start_time' => $start,
+                    'end_time' => $end,
+                ]);
+                $period->vacancies()->attach($validated['vacancies_ids']);
+            });
+
+            // If this is an Inertia request (router.post/put) return redirect with flash
+            if ($request->header('X-Inertia')) {
+                return redirect()->back()->with('success', 'Period created successfully');
             }
-            
+            // Pure JSON / API consumers
+            if ($request->expectsJson() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Period created successfully',
+                    'data' => [ 'id' => $period->id ]
+                ]);
+            }
+            // Default web fallback
             return redirect()->back()->with('success', 'Period created successfully');
         } catch (\Exception $e) {
-            Log::error('Failed to create period', [
-                'error' => $e->getMessage(),
-                'memory_usage' => memory_get_usage(true),
-                'memory_peak' => memory_get_peak_usage(true)
-            ]);
-            
-            return redirect()->back()
-                ->with('error', 'Failed to create period')
+            Log::error('Failed to create period', [ 'error' => $e->getMessage() ]);
+            if ($request->header('X-Inertia')) {
+                return redirect()->back()->with('error', 'Failed to create period')
+                    ->withErrors(['error' => 'An error occurred while creating the period']);
+            }
+            if ($request->expectsJson() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to create period'
+                ], 500);
+            }
+            return redirect()->back()->with('error', 'Failed to create period')
                 ->withErrors(['error' => 'An error occurred while creating the period']);
         }
     }
@@ -305,8 +322,9 @@ class PeriodController extends Controller
             'id' => $period->id,
             'name' => $period->name,
             'description' => $period->description,
-            'start_time' => $period->start_time,
-            'end_time' => $period->end_time,
+            // Normalize for frontend edit dialog (HTML date input expects Y-m-d)
+            'start_time' => $period->start_time ? Carbon::parse($period->start_time)->format('Y-m-d') : null,
+            'end_time' => $period->end_time ? Carbon::parse($period->end_time)->format('Y-m-d') : null,
             'vacancies_ids' => $period->vacancies->pluck('id')->map(fn($id) => (string)$id)->toArray()
         ];
 
@@ -325,12 +343,21 @@ class PeriodController extends Controller
         });
         
         $periods = $periodsQuery->get();
+
+        // Pre-compute application counts for this company (avoid N+1)
+        $applicationCounts = Application::query()
+            ->selectRaw('vacancy_periods.period_id as period_id, COUNT(applications.id) as total')
+            ->join('vacancy_periods', 'applications.vacancy_period_id', '=', 'vacancy_periods.id')
+            ->join('vacancies', 'vacancy_periods.vacancy_id', '=', 'vacancies.id')
+            ->where('vacancies.company_id', $companyId)
+            ->groupBy('vacancy_periods.period_id')
+            ->pluck('total', 'period_id');
         
         // Get current date for status checking
         $now = Carbon::now();
         
         // Format the data for the frontend
-        $periodsData = $periods->map(function ($period) use ($company, $now) {
+    $periodsData = $periods->map(function ($period) use ($company, $now, $applicationCounts) {
             // Calculate status based on current date
             $status = 'Not Set';
             if ($period->start_time && $period->end_time) {
@@ -350,12 +377,7 @@ class PeriodController extends Controller
             $companyVacancies = $period->vacancies->where('company_id', $company->id);
             
             // Count applications for this company in this period
-            $applicantsCount = Application::whereHas('vacancyPeriod', function($query) use ($period) {
-                $query->where('period_id', $period->id);
-            })
-            ->whereHas('vacancyPeriod.vacancy', function($query) use ($company) {
-                $query->where('company_id', $company->id);
-            })->count();
+            $applicantsCount = (int) ($applicationCounts[$period->id] ?? 0);
             
             return [
                 'id' => $period->id,
@@ -417,43 +439,57 @@ class PeriodController extends Controller
 
     public function update(Request $request, Period $period)
     {
+        /**
+         * Frontend reference:
+         *   React component: admin/periods/index (PeriodsDashboard) -> handleUpdatePeriod (axios PUT /dashboard/periods/{id})
+         *   Expects JSON response.
+         */
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'vacancies_ids' => 'required|array',
+            'vacancies_ids' => 'required|array|min:1',
             'vacancies_ids.*' => 'exists:vacancies,id',
-            'start_time' => 'required|date_format:Y-m-d',
-            'end_time' => 'required|date_format:Y-m-d|after:start_time',
+            'start_time' => 'required',
+            'end_time' => 'required|after:start_time',
         ]);
 
         try {
-            // Parse dates to ensure correct format
-            $startTime = Carbon::parse($validated['start_time'])->startOfDay();
-            $endTime = Carbon::parse($validated['end_time'])->endOfDay();
+            $startTime = $this->normalizeDate($validated['start_time'])->startOfDay();
+            $endTime = $this->normalizeDate($validated['end_time'])->endOfDay();
 
-            $period->update([
-                'name' => $validated['name'],
-                'description' => $validated['description'],
-                'start_time' => $startTime,
-                'end_time' => $endTime,
-            ]);
-            
-            // Sync vacancies
-            $period->vacancies()->sync($validated['vacancies_ids']);
+            DB::transaction(function () use ($period, $validated, $startTime, $endTime) {
+                $period->update([
+                    'name' => $validated['name'],
+                    'description' => $validated['description'] ?? null,
+                    'start_time' => $startTime,
+                    'end_time' => $endTime,
+                ]);
+                $period->vacancies()->sync($validated['vacancies_ids']);
+            });
 
-            // Check if this is a company-specific request (from company periods page)
-            $companyId = $request->route('company');
-            if ($companyId) {
-                // Redirect back to company periods page
-                return redirect()->route('companies.periods', ['company' => $companyId])
-                    ->with('success', 'Period updated successfully');
+            if ($request->header('X-Inertia')) {
+                return redirect()->back()->with('success', 'Period updated successfully');
             }
-
+            if ($request->expectsJson() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Period updated successfully'
+                ]);
+            }
             return redirect()->back()->with('success', 'Period updated successfully');
         } catch (\Exception $e) {
-            Log::error('Failed to update period: ' . $e->getMessage());
-            return redirect()->back()
-                ->with('error', 'Failed to update period')
+            Log::error('Failed to update period', [ 'period_id' => $period->id, 'error' => $e->getMessage() ]);
+            if ($request->header('X-Inertia')) {
+                return redirect()->back()->with('error', 'Failed to update period')
+                    ->withErrors(['error' => 'An error occurred while updating the period']);
+            }
+            if ($request->expectsJson() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to update period'
+                ], 500);
+            }
+            return redirect()->back()->with('error', 'Failed to update period')
                 ->withErrors(['error' => 'An error occurred while updating the period']);
         }
     }

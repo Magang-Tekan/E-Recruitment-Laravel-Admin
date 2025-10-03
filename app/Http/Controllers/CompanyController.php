@@ -476,6 +476,15 @@ class CompanyController extends Controller
         });
         
         $periods = $periodsQuery->get();
+
+        // Preload application counts in a single query to avoid N+1 (possible prod timeout / 502 cause)
+        $applicationCounts = \App\Models\Application::query()
+            ->selectRaw('vacancy_periods.period_id as period_id, COUNT(applications.id) as total')
+            ->join('vacancy_periods', 'applications.vacancy_period_id', '=', 'vacancy_periods.id')
+            ->join('vacancies', 'vacancy_periods.vacancy_id', '=', 'vacancies.id')
+            ->where('vacancies.company_id', $company->id)
+            ->groupBy('vacancy_periods.period_id')
+            ->pluck('total', 'period_id');
         
         Log::info('Found ' . $periods->count() . ' periods for company ' . $company->id);
         
@@ -483,7 +492,7 @@ class CompanyController extends Controller
         $now = \Carbon\Carbon::now();
         
         // Format the data for the frontend
-        $periodsData = $periods->map(function ($period) use ($company, $now) {
+    $periodsData = $periods->map(function ($period) use ($company, $now, $applicationCounts) {
             // Calculate status based on current date
             $status = 'Not Set';
             if ($period->start_time && $period->end_time) {
@@ -502,13 +511,8 @@ class CompanyController extends Controller
             // Get vacancies for this company in this period
             $companyVacancies = $period->vacancies->where('company_id', $company->id);
             
-            // Count applications for this company in this period
-            $applicantsCount = Application::whereHas('vacancyPeriod', function($query) use ($period) {
-                $query->where('period_id', $period->id);
-            })
-            ->whereHas('vacancyPeriod.vacancy', function($query) use ($company) {
-                $query->where('company_id', $company->id);
-            })->count();
+            // Use precomputed application count (avoids per-period query)
+            $applicantsCount = (int) ($applicationCounts[$period->id] ?? 0);
             
             return [
                 'id' => $period->id,
