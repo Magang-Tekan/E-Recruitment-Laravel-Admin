@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreCompanyRequest;
+use App\Http\Requests\UpdateCompanyRequest;
 use App\Models\Company;
 use App\Models\Period;
 use App\Models\Vacancies;
@@ -9,6 +11,7 @@ use App\Models\Application;
 use App\Models\ApplicationReport;
 use App\Models\Status;
 use App\Models\VacancyPeriods;
+use App\Services\CompanyService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Log;
@@ -16,6 +19,10 @@ use Illuminate\Support\Facades\Auth;
 
 class CompanyController extends Controller
 {
+    public function __construct(
+        private CompanyService $companyService
+    ) {}
+
     /**
      * Show administration page for a company.
      */
@@ -357,7 +364,9 @@ class CompanyController extends Controller
 
     public function index()
     {
-        $companies = Company::all();
+        $companies = Company::orderBy('display_order', 'asc')
+            ->orderBy('name', 'asc')
+            ->get();
         
         return Inertia::render('admin/companies/index', [
             'companies' => $companies
@@ -369,35 +378,23 @@ class CompanyController extends Controller
         return Inertia::render('admin/companies/create');
     }
 
-    public function store(Request $request)
+    public function store(StoreCompanyRequest $request)
     {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'email' => 'nullable|email|max:255',
-            'phone' => 'nullable|string|max:20',
-            'address' => 'nullable|string',
-            'vision' => 'nullable|string',
-            'mission' => 'nullable|string',
-        ]);
-
-        $company = Company::create([
-            'name' => $request->name,
-            'description' => $request->description,
-            'email' => $request->email,
-            'phone' => $request->phone,
-            'address' => $request->address,
-        ]);
-
-        // Create About Us record if vision or mission is provided
-        if ($request->vision || $request->mission) {
-            $company->aboutUs()->create([
-                'vision' => $request->vision,
-                'mission' => $request->mission,
+        try {
+            $company = $this->companyService->create($request);
+            
+            return redirect()->route('company-management.index')
+                ->with('success', 'Company created successfully!');
+        } catch (\Exception $e) {
+            Log::error('Error creating company:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
             ]);
+            
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'Failed to create company. Please try again.');
         }
-
-        return redirect()->route('company-management.index');
     }
 
     public function show(Company $company)
@@ -410,57 +407,74 @@ class CompanyController extends Controller
     public function edit(Company $company)
     {
         $company->load('aboutUs');
+        
+        // Add logo_url to company data
+        $companyData = $company->toArray();
+        $companyData['logo_url'] = $company->logo_url;
+        
         return Inertia::render('admin/companies/edit', [
-            'company' => $company
+            'company' => $companyData
         ]);
     }
 
-    public function update(Request $request, Company $company)
+    public function update(UpdateCompanyRequest $request, Company $company)
     {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'email' => 'nullable|email|max:255',
-            'phone' => 'nullable|string|max:20',
-            'address' => 'nullable|string',
-            'vision' => 'nullable|string',
-            'mission' => 'nullable|string',
+        // Debug: Log request details
+        Log::info('Company Update Debug:', [
+            'method' => $request->method(),
+            'has_file_logo' => $request->hasFile('logo'),
+            'all_data' => $request->all(),
+            'all_files' => $request->allFiles(),
+            'content_type' => $request->header('Content-Type'),
+            'logo_file_details' => $request->hasFile('logo') ? [
+                'name' => $request->file('logo')->getClientOriginalName(),
+                'size' => $request->file('logo')->getSize(),
+                'mime' => $request->file('logo')->getMimeType(),
+            ] : null,
         ]);
-
-        $company->update([
-            'name' => $request->name,
-            'description' => $request->description,
-            'email' => $request->email,
-            'phone' => $request->phone,
-            'address' => $request->address,
-        ]);
-
-        // Update or create About Us record
-        if ($request->vision || $request->mission) {
-            $company->aboutUs()->updateOrCreate(
-                ['company_id' => $company->id],
-                [
-                    'vision' => $request->vision,
-                    'mission' => $request->mission,
-                ]
-            );
+        
+        try {
+            $this->companyService->update($company, $request);
+            
+            return redirect()->route('company-management.index')
+                ->with('success', 'Company updated successfully!');
+        } catch (\Exception $e) {
+            Log::error('Error updating company:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'Failed to update company. Please try again.');
         }
-
-        return redirect()->route('company-management.index');
     }
 
     public function destroy(Company $company)
     {
-        $company->delete();
-
-        return redirect()->route('company-management.index')
-            ->with('success', 'Company deleted successfully.');
+        try {
+            $this->companyService->delete($company);
+            
+            return redirect()->route('company-management.index')
+                ->with('success', 'Company deleted successfully.');
+        } catch (\Exception $e) {
+            Log::error('Error deleting company:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return redirect()->back()
+                ->with('error', 'Failed to delete company. Please try again.');
+        }
     }
 
     public function periods(Company $company, Request $request)
     {
         // Debug: Log the received company
-        Log::info('Company periods request: ' . $company->name . ' (ID: ' . $company->id . ')');
+        Log::info('Company periods request', [
+            'company_name' => $company->name,
+            'company_id' => $company->id
+        ]);
         
         // For company periods, we don't use pagination parameters
         // Always return all periods for the company
@@ -486,7 +500,10 @@ class CompanyController extends Controller
             ->groupBy('vacancy_periods.period_id')
             ->pluck('total', 'period_id');
         
-        Log::info('Found ' . $periods->count() . ' periods for company ' . $company->id);
+        Log::info('Found periods for company', [
+            'periods_count' => $periods->count(),
+            'company_id' => $company->id
+        ]);
         
         // Get current date for status checking
         $now = \Carbon\Carbon::now();
@@ -554,7 +571,10 @@ class CompanyController extends Controller
                 ];
             });
         
-        Log::info('Found ' . $vacancies->count() . ' vacancies for company ' . $company->id);
+        Log::info('Found vacancies for company', [
+            'vacancies_count' => $vacancies->count(),
+            'company_id' => $company->id
+        ]);
         
         return Inertia::render('admin/periods/index', [
             'periods' => $periodsData->toArray(),

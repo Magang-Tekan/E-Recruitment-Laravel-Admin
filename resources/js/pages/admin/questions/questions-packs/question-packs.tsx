@@ -25,6 +25,8 @@ interface QuestionPack {
   description: string | null;
   test_type: string;
   duration: number;
+  opens_at?: string;
+  closes_at?: string;
   questions_count?: number;
   created_at: string;
   updated_at: string;

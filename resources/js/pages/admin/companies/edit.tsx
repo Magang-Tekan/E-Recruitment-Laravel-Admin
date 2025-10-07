@@ -7,8 +7,10 @@ import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
-import { Head, Link, useForm } from '@inertiajs/react';
-import { ArrowLeft, Building2, Globe, Mail, MapPin, Phone, Save, BookOpen } from 'lucide-react';
+import { Head, Link, useForm, router } from '@inertiajs/react';
+import { ArrowLeft, Building2, Globe, Mail, MapPin, Phone, Save, BookOpen, Upload, X } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 
 interface AboutUs {
     id: number;
@@ -19,10 +21,15 @@ interface AboutUs {
 interface Company {
     id: number;
     name: string;
+    logo?: string;
+    logo_url?: string;
     description?: string;
     email?: string;
     phone?: string;
     address?: string;
+    website?: string;
+    featured: boolean;
+    display_order?: number;
     created_at: string;
     about_us?: AboutUs;
 }
@@ -58,19 +65,90 @@ const parentCompanyInfo = {
 };
 
 export default function EditCompany({ company }: Props) {
-    const { data, setData, put, processing, errors } = useForm({
+    const [logoFile, setLogoFile] = useState<File | null>(null);
+    const [logoPreview, setLogoPreview] = useState<string | null>(company.logo_url || company.logo || null);
+    const [processing, setProcessing] = useState(false);
+
+    const { data, setData, errors } = useForm({
         name: company.name || '',
+        logo: null as File | null,
         description: company.description || '',
         email: company.email || '',
         phone: company.phone || '',
         address: company.address || '',
+        website: company.website || '',
+        featured: company.featured || false,
+        display_order: company.display_order?.toString() || '',
         vision: company.about_us?.vision || '',
         mission: company.about_us?.mission || '',
     });
 
+    // Update form data when company prop changes
+    useEffect(() => {
+        if (company) {
+            setData('name', company.name || '');
+            setData('description', company.description || '');
+            setData('email', company.email || '');
+            setData('phone', company.phone || '');
+            setData('address', company.address || '');
+            setData('website', company.website || '');
+            setData('featured', company.featured || false);
+            setData('display_order', company.display_order?.toString() || '');
+            setData('vision', company.about_us?.vision || '');
+            setData('mission', company.about_us?.mission || '');
+        }
+    }, [company, setData]);
+
+    const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            setLogoFile(file);
+            setData('logo', file);
+            
+            // Create preview URL
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                setLogoPreview(e.target?.result as string);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const removeLogo = () => {
+        setLogoFile(null);
+        setLogoPreview(null);
+        setData('logo', null);
+    };
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        put(route('companies.update', company.id));
+        
+        // Debug: Log form data before submission
+        console.log('Form data being submitted:', data);
+        console.log('Logo file:', data.logo);
+        console.log('Has logo file:', !!data.logo);
+        
+        setProcessing(true);
+        
+        // For file uploads with PUT, we need to use POST with _method spoofing
+        // This is a Laravel/PHP limitation with multipart/form-data and PUT
+        router.post(route('companies.update', company.id), {
+            ...data,
+            _method: 'PUT'
+        }, {
+            onSuccess: () => {
+                toast.success('Company updated successfully!');
+                setProcessing(false);
+            },
+            onError: (errors: any) => {
+                console.error('Update failed:', errors);
+                toast.error('Failed to update company. Please try again.');
+                setProcessing(false);
+            },
+            onFinish: () => {
+                setProcessing(false);
+            }
+        });
     };
 
     return (
@@ -103,7 +181,7 @@ export default function EditCompany({ company }: Props) {
                                     <CardDescription>Update the details for {company.name}</CardDescription>
                                 </CardHeader>
                                 <CardContent>
-                                    <form onSubmit={handleSubmit} className="space-y-4">
+                                    <form onSubmit={handleSubmit} className="space-y-4" encType="multipart/form-data">
                                         <div className="space-y-2">
                                             <Label htmlFor="name">Company Name *</Label>
                                             <Input
@@ -116,6 +194,50 @@ export default function EditCompany({ company }: Props) {
                                             {errors.name && (
                                                 <p className="text-sm text-red-500">{errors.name}</p>
                                             )}
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <Label htmlFor="logo">Company Logo</Label>
+                                            <div className="space-y-4">
+                                                {logoPreview ? (
+                                                    <div className="relative">
+                                                        <img
+                                                            src={logoPreview}
+                                                            alt="Logo preview"
+                                                            className="w-32 h-32 object-cover rounded-lg border border-gray-200"
+                                                        />
+                                                        <Button
+                                                            type="button"
+                                                            variant="destructive"
+                                                            size="sm"
+                                                            className="absolute -top-2 -right-2"
+                                                            onClick={removeLogo}
+                                                        >
+                                                            <X className="h-4 w-4" />
+                                                        </Button>
+                                                    </div>
+                                                ) : (
+                                                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                                                        <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                                                        <p className="mt-2 text-sm text-gray-600">
+                                                            Upload company logo
+                                                        </p>
+                                                        <p className="text-xs text-gray-500">
+                                                            PNG, JPG, GIF up to 2MB
+                                                        </p>
+                                                    </div>
+                                                )}
+                                                <Input
+                                                    id="logo"
+                                                    type="file"
+                                                    accept="image/*"
+                                                    onChange={handleLogoChange}
+                                                    className={errors.logo ? 'border-red-500' : ''}
+                                                />
+                                                {errors.logo && (
+                                                    <p className="text-sm text-red-500">{errors.logo}</p>
+                                                )}
+                                            </div>
                                         </div>
 
                                         <div className="space-y-2">
@@ -177,6 +299,54 @@ export default function EditCompany({ company }: Props) {
                                             {errors.address && (
                                                 <p className="text-sm text-red-500">{errors.address}</p>
                                             )}
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <Label htmlFor="website">Website</Label>
+                                            <Input
+                                                id="website"
+                                                value={data.website}
+                                                onChange={(e) => setData('website', e.target.value)}
+                                                placeholder="https://www.company.com"
+                                                className={errors.website ? 'border-red-500' : ''}
+                                            />
+                                            {errors.website && (
+                                                <p className="text-sm text-red-500">{errors.website}</p>
+                                            )}
+                                        </div>
+
+                                        <div className="grid gap-4 md:grid-cols-2">
+                                            <div className="space-y-2">
+                                                <Label htmlFor="display_order">Display Order</Label>
+                                                <Input
+                                                    id="display_order"
+                                                    type="number"
+                                                    value={data.display_order}
+                                                    onChange={(e) => setData('display_order', e.target.value)}
+                                                    placeholder="0"
+                                                    min="0"
+                                                    className={errors.display_order ? 'border-red-500' : ''}
+                                                />
+                                                {errors.display_order && (
+                                                    <p className="text-sm text-red-500">{errors.display_order}</p>
+                                                )}
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <Label htmlFor="featured" className="flex items-center gap-2">
+                                                    <input
+                                                        id="featured"
+                                                        type="checkbox"
+                                                        checked={data.featured}
+                                                        onChange={(e) => setData('featured', e.target.checked)}
+                                                        className="rounded border-gray-300"
+                                                    />
+                                                    Featured Company
+                                                </Label>
+                                                {errors.featured && (
+                                                    <p className="text-sm text-red-500">{errors.featured}</p>
+                                                )}
+                                            </div>
                                         </div>
 
                                         <div className="flex justify-end items-center space-x-2 pt-6">

@@ -11,12 +11,18 @@ use Inertia\Inertia;
 
 Route::get('/', [VacanciesController::class, 'index'])->name('home');
 
-// Redirect based on role
-Route::middleware(['auth', 'verified'])->get('/redirect', function () {
-    return Auth::user()->role === UserRole::HR
-        ? redirect()->route('admin.dashboard')
-        : redirect()->route('user.info');
-})->name('dashboard');
+Route::get('/test-upload', function () {
+    return view('test-upload');
+});
+
+Route::middleware('auth')->group(function () {
+    // Redirect based on role
+    Route::middleware(['verified'])->get('/redirect', function () {
+        return Auth::user()->role === UserRole::HR
+            ? redirect()->route('admin.dashboard')
+            : redirect()->route('user.info');
+    })->name('dashboard');
+});
 
 // Company Management Routes (hanya index dan destroy)
 Route::middleware(['auth'])->prefix('dashboard')->group(function () {

@@ -56,6 +56,8 @@ class QuestionPackController extends Controller
             'description' => 'nullable|string',
             'test_type' => 'required|string',
             'duration' => 'required|string',
+            'opens_at' => 'nullable|date',
+            'closes_at' => 'nullable|date|after:opens_at',
             'question_ids' => 'required|array',
             'question_ids.*' => 'exists:questions,id',
         ]);
@@ -86,6 +88,8 @@ class QuestionPackController extends Controller
             'description' => $validated['description'],
             'test_type' => $validated['test_type'],
             'duration' => $duration,
+            'opens_at' => $validated['opens_at'],
+            'closes_at' => $validated['closes_at'],
             'user_id' => Auth::user()->id,
             'status' => 'active',
         ]);
@@ -127,8 +131,28 @@ class QuestionPackController extends Controller
     {
         $questionpack->load('questions');
 
+        // Format dates for consistent display  
+        $questionpackData = $questionpack->toArray();
+        if ($questionpack->opens_at) {
+            $questionpackData['opens_at'] = $questionpack->opens_at->format('Y-m-d\TH:i:s');
+        }
+        if ($questionpack->closes_at) {
+            $questionpackData['closes_at'] = $questionpack->closes_at->format('Y-m-d\TH:i:s');
+        }
+
+        Log::info('QuestionPack show data:', [
+            'id' => $questionpack->id,
+            'pack_name' => $questionpack->pack_name,
+            'duration' => $questionpack->duration,
+            'opens_at' => $questionpack->opens_at,
+            'closes_at' => $questionpack->closes_at,
+            'opens_at_formatted' => $questionpack->opens_at ? $questionpack->opens_at->format('Y-m-d H:i:s') : null,
+            'closes_at_formatted' => $questionpack->closes_at ? $questionpack->closes_at->format('Y-m-d H:i:s') : null,
+            'questions_count' => $questionpack->questions->count()
+        ]);
+
         return inertia('admin/questions/questions-packs/view-question-pack', [
-            'questionPack' => $questionpack
+            'questionPack' => $questionpackData
         ]);
     }
 
@@ -140,8 +164,19 @@ class QuestionPackController extends Controller
         $questionpack->load('questions');
         $allQuestions = Question::select('id', 'question_text', 'question_type')->get();
 
+        // Format dates for datetime-local input
+        $questionpackData = $questionpack->toArray();
+        if ($questionpack->opens_at) {
+            // Format for datetime-local input (YYYY-MM-DDTHH:MM)
+            $questionpackData['opens_at'] = $questionpack->opens_at->format('Y-m-d\TH:i');
+        }
+        if ($questionpack->closes_at) {
+            // Format for datetime-local input (YYYY-MM-DDTHH:MM)
+            $questionpackData['closes_at'] = $questionpack->closes_at->format('Y-m-d\TH:i');
+        }
+
         return inertia('admin/questions/questions-packs/edit-question-packs', [
-            'questionPack' => $questionpack,
+            'questionPack' => $questionpackData,
             'allQuestions' => $allQuestions
         ]);
     }
@@ -156,15 +191,29 @@ class QuestionPackController extends Controller
             'description' => 'nullable|string',
             'test_type' => 'nullable|string',
             'duration' => 'nullable|numeric|min:0',
+            'opens_at' => 'nullable|date',
+            'closes_at' => 'nullable|date|after:opens_at',
             'question_ids' => 'nullable|array',
             'question_ids.*' => 'exists:questions,id',
         ]);
+
+        // Handle duration conversion if it's provided as string (HH:MM:SS format)
+        $duration = $validated['duration'] ?? $questionpack->duration;
+        if (is_string($duration) && strpos($duration, ':') !== false) {
+            $durationParts = explode(':', $duration);
+            $hours = (int) $durationParts[0];
+            $minutes = (int) $durationParts[1];
+            $seconds = isset($durationParts[2]) ? (int) $durationParts[2] : 0;
+            $duration = ($hours * 60) + $minutes + ($seconds / 60);
+        }
 
         $questionpack->update([
             'pack_name' => $validated['pack_name'],
             'description' => $validated['description'],
             'test_type' => $validated['test_type'] ?? $questionpack->test_type,
-            'duration' => $validated['duration'] ?? $questionpack->duration,
+            'duration' => $duration,
+            'opens_at' => $validated['opens_at'],
+            'closes_at' => $validated['closes_at'],
         ]);
 
         // Sync questions

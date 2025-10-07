@@ -10,8 +10,8 @@ return new class extends Migration {
         Schema::create('about_us', function (Blueprint $table) {
             $table->id();
             $table->foreignId('company_id')->constrained('companies')->onDelete('cascade'); // relasi ke tabel companies
-            $table->text('vision');    
-            $table->text('mission');   
+            $table->text('vision')->nullable();    
+            $table->text('mission')->nullable();   
             $table->timestamps();      
         });
     }

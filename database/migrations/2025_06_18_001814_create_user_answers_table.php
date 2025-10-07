@@ -15,14 +15,14 @@ return new class extends Migration
             $table->id();
             $table->unsignedBigInteger('user_id');
             $table->unsignedBigInteger('question_id');
-            $table->unsignedBigInteger('choice_id');
+            $table->unsignedBigInteger('choice_id')->nullable();
             $table->timestamps();
 
             $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
             $table->foreign('question_id')->references('id')->on('questions')->onDelete('cascade');
-            $table->foreign('choice_id')->references('id')->on('choices')->onDelete('cascade');
+            $table->foreign('choice_id')->references('id')->on('choices')->onDelete('set null');
         });
-    }
+    } 
 
     /**
      * Reverse the migrations.

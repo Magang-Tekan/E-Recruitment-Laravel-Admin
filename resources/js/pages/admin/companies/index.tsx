@@ -18,6 +18,8 @@ interface Company {
     email?: string;
     phone?: string;
     address?: string;
+    featured: boolean;
+    display_order?: number;
     created_at: string;
 }
 
@@ -158,10 +160,24 @@ export default function CompaniesIndex({ companies }: Props) {
                                             <CardHeader>
                                                 <div className="flex items-start justify-between">
                                                     <div className="flex-1">
-                                                        <h3 className="font-semibold text-lg">{company.name}</h3>
-                                                        <Badge variant="outline" className="mt-1">
-                                                            Active
-                                                        </Badge>
+                                                        <div className="flex items-center gap-2">
+                                                            <h3 className="font-semibold text-lg">{company.name}</h3>
+                                                            {company.featured && (
+                                                                <Badge variant="default" className="bg-yellow-500 text-white">
+                                                                    Featured
+                                                                </Badge>
+                                                            )}
+                                                        </div>
+                                                        <div className="flex items-center gap-2 mt-1">
+                                                            <Badge variant="outline">
+                                                                Active
+                                                            </Badge>
+                                                            {company.display_order && (
+                                                                <Badge variant="secondary" className="text-xs">
+                                                                    Order: {company.display_order}
+                                                                </Badge>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </div>
                                                 {company.description && (

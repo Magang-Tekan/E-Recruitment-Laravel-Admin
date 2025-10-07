@@ -25,7 +25,8 @@ class Vacancies extends Model
         'question_pack_id',
         'education_level_id',
         'vacancy_type_id',
-        'job_description'
+        'job_description',
+        'psychotest_name'
     ];
     
     protected $casts = [

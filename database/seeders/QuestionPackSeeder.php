@@ -30,6 +30,8 @@ class QuestionPackSeeder extends Seeder
                 'description' => 'Basic assessment for all candidates',
                 'test_type' => 'general',
                 'duration' => 30,
+                'opens_at' => now()->addDays(1),
+                'closes_at' => now()->addDays(30),
                 'user_id' => $user->id,
                 'status' => 'active'
             ],
@@ -38,6 +40,8 @@ class QuestionPackSeeder extends Seeder
                 'description' => 'Technical assessment for IT positions',
                 'test_type' => 'technical',
                 'duration' => 45,
+                'opens_at' => now()->addDays(2),
+                'closes_at' => now()->addDays(45),
                 'user_id' => $user->id,
                 'status' => 'active'
             ],
@@ -46,6 +50,8 @@ class QuestionPackSeeder extends Seeder
                 'description' => 'Assessment for managerial positions',
                 'test_type' => 'leadership',
                 'duration' => 60,
+                'opens_at' => now()->addDays(3),
+                'closes_at' => now()->addDays(60),
                 'user_id' => $user->id,
                 'status' => 'draft'
             ]

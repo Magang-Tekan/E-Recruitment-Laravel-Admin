@@ -8,7 +8,9 @@ import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { ArrowLeft, Building2, Globe, Mail, MapPin, Phone, Plus, BookOpen } from 'lucide-react';
+import { ArrowLeft, Building2, Globe, Mail, MapPin, Phone, Plus, BookOpen, Upload, X } from 'lucide-react';
+import { useState } from 'react';
+import { toast } from 'sonner';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -37,22 +39,69 @@ const parentCompanyInfo = {
 };
 
 export default function CreateCompany() {
+    const [logoFile, setLogoFile] = useState<File | null>(null);
+    const [logoPreview, setLogoPreview] = useState<string | null>(null);
+
     const { data, setData, post, processing, errors } = useForm({
         name: '',
+        logo: null as File | null,
         description: '',
         email: '',
         phone: '',
         address: '',
+        website: '',
+        featured: false,
+        display_order: '',
         vision: '',
         mission: '',
     });
 
+    const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            setLogoFile(file);
+            setData('logo', file);
+            
+            // Create preview URL
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                setLogoPreview(e.target?.result as string);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const removeLogo = () => {
+        setLogoFile(null);
+        setLogoPreview(null);
+        setData('logo', null);
+    };
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        
+        // Debug: Log form data before submission
+        console.log('Form data being submitted (create):', data);
+        console.log('Logo file:', data.logo);
+        console.log('Has logo file:', !!data.logo);
+        
+        // Validate name is not empty
+        if (!data.name || data.name.trim() === '') {
+            toast.error('Company name is required and cannot be empty');
+            return;
+        }
+        
         post(route('companies.store'), {
             onSuccess: () => {
-                // Redirect ke company management setelah berhasil create
+                toast.success('Company created successfully!');
                 router.get(route('company-management.index'));
+            },
+            onError: (errors) => {
+                console.error('Create failed:', errors);
+                toast.error('Failed to create company. Please try again.');
+            },
+            onFinish: () => {
+                // Reset form processing state
             }
         });
     };
@@ -87,7 +136,7 @@ export default function CreateCompany() {
                                     <CardDescription>Enter the details for the new company</CardDescription>
                                 </CardHeader>
                                 <CardContent>
-                                    <form onSubmit={handleSubmit} className="space-y-4">
+                                    <form onSubmit={handleSubmit} className="space-y-4" encType="multipart/form-data">
                                         <div className="space-y-2">
                                             <Label htmlFor="name">Company Name *</Label>
                                             <Input
@@ -100,6 +149,50 @@ export default function CreateCompany() {
                                             {errors.name && (
                                                 <p className="text-sm text-red-600">{errors.name}</p>
                                             )}
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <Label htmlFor="logo">Company Logo</Label>
+                                            <div className="space-y-4">
+                                                {logoPreview ? (
+                                                    <div className="relative">
+                                                        <img
+                                                            src={logoPreview}
+                                                            alt="Logo preview"
+                                                            className="w-32 h-32 object-cover rounded-lg border border-gray-200"
+                                                        />
+                                                        <Button
+                                                            type="button"
+                                                            variant="destructive"
+                                                            size="sm"
+                                                            className="absolute -top-2 -right-2"
+                                                            onClick={removeLogo}
+                                                        >
+                                                            <X className="h-4 w-4" />
+                                                        </Button>
+                                                    </div>
+                                                ) : (
+                                                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                                                        <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                                                        <p className="mt-2 text-sm text-gray-600">
+                                                            Upload company logo
+                                                        </p>
+                                                        <p className="text-xs text-gray-500">
+                                                            PNG, JPG, GIF up to 2MB
+                                                        </p>
+                                                    </div>
+                                                )}
+                                                <Input
+                                                    id="logo"
+                                                    type="file"
+                                                    accept="image/*"
+                                                    onChange={handleLogoChange}
+                                                    className={errors.logo ? 'border-red-500' : ''}
+                                                />
+                                                {errors.logo && (
+                                                    <p className="text-sm text-red-600">{errors.logo}</p>
+                                                )}
+                                            </div>
                                         </div>
 
                                         <div className="space-y-2">
@@ -161,6 +254,54 @@ export default function CreateCompany() {
                                             {errors.address && (
                                                 <p className="text-sm text-red-600">{errors.address}</p>
                                             )}
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <Label htmlFor="website">Website</Label>
+                                            <Input
+                                                id="website"
+                                                value={data.website}
+                                                onChange={(e) => setData('website', e.target.value)}
+                                                placeholder="https://www.company.com"
+                                                className={errors.website ? 'border-red-500' : ''}
+                                            />
+                                            {errors.website && (
+                                                <p className="text-sm text-red-600">{errors.website}</p>
+                                            )}
+                                        </div>
+
+                                        <div className="grid gap-4 md:grid-cols-2">
+                                            <div className="space-y-2">
+                                                <Label htmlFor="display_order">Display Order</Label>
+                                                <Input
+                                                    id="display_order"
+                                                    type="number"
+                                                    value={data.display_order}
+                                                    onChange={(e) => setData('display_order', e.target.value)}
+                                                    placeholder="0"
+                                                    min="0"
+                                                    className={errors.display_order ? 'border-red-500' : ''}
+                                                />
+                                                {errors.display_order && (
+                                                    <p className="text-sm text-red-600">{errors.display_order}</p>
+                                                )}
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <Label htmlFor="featured" className="flex items-center gap-2">
+                                                    <input
+                                                        id="featured"
+                                                        type="checkbox"
+                                                        checked={data.featured}
+                                                        onChange={(e) => setData('featured', e.target.checked)}
+                                                        className="rounded border-gray-300"
+                                                    />
+                                                    Featured Company
+                                                </Label>
+                                                {errors.featured && (
+                                                    <p className="text-sm text-red-600">{errors.featured}</p>
+                                                )}
+                                            </div>
                                         </div>
 
                                         <div className="flex justify-end items-center space-x-2 pt-6">

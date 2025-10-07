@@ -9,21 +9,28 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@radix-ui/react-select';
-import { AlertTriangle, Building2, Edit, Filter, Mail, MapPin, Phone, Plus, Search, Trash2 } from 'lucide-react';
+import { AlertTriangle, Building2, Edit, Filter, Mail, MapPin, Phone, Plus, Search, Trash2, Globe } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { toast } from 'sonner';
 
 interface Company {
     id: number;
     name: string;
+    logo?: string;
     description?: string;
     email?: string;
     phone?: string;
     address?: string;
+    website?: string;
     created_at: string;
 }
 
 interface Props {
     companies: Company[];
+    flash?: {
+        success?: string;
+        error?: string;
+    };
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -37,7 +44,7 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-export default function CompanyManagement({ companies }: Props) {
+export default function CompanyManagement({ companies, flash }: Props) {
     // Filter and search state
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
@@ -90,6 +97,16 @@ export default function CompanyManagement({ companies }: Props) {
     useEffect(() => {
         setIsFilterActive(searchQuery !== '' || statusFilter !== 'all');
     }, [searchQuery, statusFilter]);
+
+    // Handle flash messages
+    useEffect(() => {
+        if (flash?.success) {
+            toast.success(flash.success);
+        }
+        if (flash?.error) {
+            toast.error(flash.error);
+        }
+    }, [flash]);
 
     // Reset filters function
     const resetFilters = () => {
@@ -259,6 +276,19 @@ export default function CompanyManagement({ companies }: Props) {
                                                         <div className="flex items-center gap-2">
                                                             <MapPin className="h-4 w-4 text-gray-400" />
                                                             <span className="text-gray-600 line-clamp-2">{company.address}</span>
+                                                        </div>
+                                                    )}
+                                                    {company.website && (
+                                                        <div className="flex items-center gap-2">
+                                                            <Globe className="h-4 w-4 text-gray-400" />
+                                                            <a 
+                                                                href={company.website} 
+                                                                target="_blank" 
+                                                                rel="noopener noreferrer"
+                                                                className="text-blue-600 hover:underline text-sm"
+                                                            >
+                                                                {company.website}
+                                                            </a>
                                                         </div>
                                                     )}
                                                 </div>

@@ -2,7 +2,10 @@
 
 namespace App\Providers;
 
+use App\Services\CompanyService;
+use App\Services\FileUploadService;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\URL;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -14,6 +17,10 @@ class AppServiceProvider extends ServiceProvider
         if (config('app.env') === 'production') {
             URL::forceScheme('https');
         }
+        
+        // Register services
+        $this->app->singleton(FileUploadService::class);
+        $this->app->singleton(CompanyService::class);
     }
 
     /**

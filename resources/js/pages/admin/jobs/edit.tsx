@@ -24,6 +24,8 @@ interface JobProps {
         education_level_id?: number;
         vacancy_type_id: number;
         job_description?: string;
+        psychotest_name?: string;
+        period_id?: number;
     };
     companies: { id: number; name: string }[];
     departments: { id: number; name: string }[];
@@ -63,6 +65,8 @@ export default function EditJob({ job, companies, departments, majors, questionP
         education_level_id: job.education_level_id ? String(job.education_level_id) : 'none',
         vacancy_type_id: String(job.vacancy_type_id),
         job_description: job.job_description || '',
+        psychotest_name: job.psychotest_name || 'Tes Psikologi',
+        period_id: job.period_id ? String(job.period_id) : '1', // Default to period 1
     });
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -97,6 +101,8 @@ export default function EditJob({ job, companies, departments, majors, questionP
                 education_level_id: formData.education_level_id !== 'none' ? parseInt(formData.education_level_id) : null,
                 vacancy_type_id: parseInt(formData.vacancy_type_id),
                 job_description: formData.job_description.trim() || null,
+                psychotest_name: formData.psychotest_name.trim() || 'Tes Psikologi',
+                period_id: parseInt(formData.period_id),
             };
 
             await router.put(route('admin.jobs.update', { id: job.id }), data);
@@ -298,6 +304,20 @@ export default function EditJob({ job, companies, departments, majors, questionP
                                                 ))}
                                             </SelectContent>
                                         </Select>
+                                    </div>
+
+                                    <div>
+                                        <Label htmlFor="psychotest_name">Test Name</Label>
+                                        <Input
+                                            id="psychotest_name"
+                                            name="psychotest_name"
+                                            value={formData.psychotest_name}
+                                            onChange={handleChange}
+                                            placeholder="Enter name for the psychological test"
+                                        />
+                                        <p className="text-xs text-gray-500 mt-1">
+                                            This name will be displayed to candidates during the test
+                                        </p>
                                     </div>
 
                                     <div>

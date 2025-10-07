@@ -51,6 +51,7 @@ export default function CreateJob({ companies, departments, majors, questionPack
         question_pack_id: "",
         education_level_id: "",
         period_id: "",
+        psychotest_name: "Tes Psikologi",
         requirements: [] as string[],
         benefits: [] as string[],
     });
@@ -241,7 +242,7 @@ export default function CreateJob({ companies, departments, majors, questionPack
                                     </div>
 
                                     <div>
-                                        <Label htmlFor="question_pack">Question Pack</Label>
+                                        <Label htmlFor="question_pack">Question Pack *</Label>
                                         <Select value={data.question_pack_id} onValueChange={(value) => setData('question_pack_id', value)}>
                                             <SelectTrigger>
                                                 <SelectValue placeholder="Select question pack" />
@@ -258,6 +259,18 @@ export default function CreateJob({ companies, departments, majors, questionPack
                                     </div>
 
                                     <div>
+                                        <Label htmlFor="psychotest_name">Test Name</Label>
+                                        <Input
+                                            id="psychotest_name"
+                                            value={data.psychotest_name}
+                                            onChange={e => setData('psychotest_name', e.target.value)}
+                                            placeholder="Enter name for the psychological test (e.g., 'Tes Kepribadian', 'Tes IQ')"
+                                        />
+                                        {errors.psychotest_name && <p className="text-red-500 text-sm">{errors.psychotest_name}</p>}
+                                        <p className="text-xs text-gray-500 mt-1">
+                                            This name will be displayed to candidates during the test
+                                        </p>
+                                    </div>                                    <div>
                                         <Label htmlFor="education_level">Education Level</Label>
                                         <Select value={data.education_level_id} onValueChange={(value) => setData('education_level_id', value)}>
                                             <SelectTrigger>
