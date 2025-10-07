@@ -34,6 +34,8 @@ export default function AddQuestionPacks({ questions = [] }: Props) {
   const [description, setDescription] = useState('');
   const [testType, setTestType] = useState('');
   const [duration, setDuration] = useState({ hours: '00', minutes: '60', seconds: '00' });
+  const [opensAt, setOpensAt] = useState('');
+  const [closesAt, setClosesAt] = useState('');
   const [selectedQuestions, setSelectedQuestions] = useState<number[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -69,6 +71,8 @@ export default function AddQuestionPacks({ questions = [] }: Props) {
       description,
       test_type: testType,
       duration: formatDuration(),
+      opens_at: opensAt,
+      closes_at: closesAt,
       question_ids: selectedQuestions,
     }, {
       onFinish: () => setIsSubmitting(false)
@@ -198,6 +202,32 @@ export default function AddQuestionPacks({ questions = [] }: Props) {
                     }
                   />
                 </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="opensAt" className="text-blue-500">
+                  Opens At
+                </Label>
+                <Input
+                  id="opensAt"
+                  type="datetime-local"
+                  value={opensAt}
+                  onChange={(e) => setOpensAt(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="closesAt" className="text-blue-500">
+                  Closes At
+                </Label>
+                <Input
+                  id="closesAt"
+                  type="datetime-local"
+                  value={closesAt}
+                  onChange={(e) => setClosesAt(e.target.value)}
+                />
               </div>
             </div>
 

@@ -137,6 +137,7 @@ class VacanciesController extends Controller
                 'vacancy_type_id' => 'required|integer|exists:vacancy_types,id',
                 'job_description' => 'nullable|string|max:1000',
                 'period_id' => 'required|integer|exists:periods,id',
+                'psychotest_name' => 'nullable|string|max:255',
             ]);
             
             Log::info('Validation passed, validated data: ', $validated);
@@ -172,6 +173,7 @@ class VacanciesController extends Controller
                 'education_level_id' => $validated['education_level_id'] ?? null,
                 'vacancy_type_id' => $validated['vacancy_type_id'],
                 'job_description' => $validated['job_description'] ?? null,
+                'psychotest_name' => $validated['psychotest_name'] ?? 'Tes Psikologi',
             ];
             
             Log::info('Data to be created: ', $createData);
@@ -241,6 +243,7 @@ class VacanciesController extends Controller
                 'vacancy_type_id' => 'required|integer|exists:vacancy_types,id',
                 'job_description' => 'nullable|string|max:1000',
                 'period_id' => 'required|integer|exists:periods,id',
+                'psychotest_name' => 'nullable|string|max:255',
             ]);
             
             Log::info('Validation passed, validated data: ', $validated);
@@ -272,6 +275,7 @@ class VacanciesController extends Controller
                 'education_level_id' => $validated['education_level_id'] ?? null,
                 'vacancy_type_id' => $validated['vacancy_type_id'],
                 'job_description' => $validated['job_description'] ?? null,
+                'psychotest_name' => $validated['psychotest_name'] ?? 'Tes Psikologi',
             ];
             
             Log::info('Data to be updated: ', $updateData);

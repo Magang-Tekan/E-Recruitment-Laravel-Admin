@@ -11,7 +11,9 @@ class CompanyManagementController extends Controller
 {
     public function index()
     {
-        $companies = Company::all();
+        $companies = Company::orderBy('display_order', 'asc')
+            ->orderBy('name', 'asc')
+            ->get();
         
         return Inertia::render('admin/company-management/index', [
             'companies' => $companies

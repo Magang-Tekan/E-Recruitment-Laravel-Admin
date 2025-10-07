@@ -40,6 +40,8 @@ interface QuestionPack {
   description: string;
   test_type: string;
   duration: number;
+  opens_at?: string;
+  closes_at?: string;
   questions: Question[];
 }
 
@@ -52,6 +54,22 @@ export default function EditQuestionPacks({ questionPack, allQuestions = [] }: P
   const [packName, setPackName] = useState(questionPack.pack_name);
   const [description, setDescription] = useState(questionPack.description);
   const [testType, setTestType] = useState(questionPack.test_type);
+  const [opensAt, setOpensAt] = useState(() => {
+    if (questionPack.opens_at) {
+      // Convert to datetime-local format (YYYY-MM-DDTHH:MM)
+      const date = new Date(questionPack.opens_at);
+      return date.toISOString().slice(0, 16);
+    }
+    return '';
+  });
+  const [closesAt, setClosesAt] = useState(() => {
+    if (questionPack.closes_at) {
+      // Convert to datetime-local format (YYYY-MM-DDTHH:MM)
+      const date = new Date(questionPack.closes_at);
+      return date.toISOString().slice(0, 16);
+    }
+    return '';
+  });
 
   // Parse duration from minutes to hours, minutes, seconds
   const [duration, setDuration] = useState(() => {
@@ -85,6 +103,8 @@ export default function EditQuestionPacks({ questionPack, allQuestions = [] }: P
       packName !== questionPack.pack_name ||
       description !== questionPack.description ||
       testType !== questionPack.test_type ||
+      opensAt !== (questionPack.opens_at || '') ||
+      closesAt !== (questionPack.closes_at || '') ||
       durationChanged ||
       questionsChanged
     );
@@ -107,6 +127,8 @@ export default function EditQuestionPacks({ questionPack, allQuestions = [] }: P
       description,
       test_type: testType,
       duration: durationInMinutes,
+      opens_at: opensAt,
+      closes_at: closesAt,
       question_ids: selectedQuestionIds,
     }, {
       onFinish: () => setIsSubmitting(false)
@@ -203,6 +225,32 @@ export default function EditQuestionPacks({ questionPack, allQuestions = [] }: P
                     }
                   />
                 </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="opensAt" className="text-blue-500">
+                  Opens At
+                </Label>
+                <Input
+                  id="opensAt"
+                  type="datetime-local"
+                  value={opensAt}
+                  onChange={(e) => setOpensAt(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="closesAt" className="text-blue-500">
+                  Closes At
+                </Label>
+                <Input
+                  id="closesAt"
+                  type="datetime-local"
+                  value={closesAt}
+                  onChange={(e) => setClosesAt(e.target.value)}
+                />
               </div>
             </div>
 

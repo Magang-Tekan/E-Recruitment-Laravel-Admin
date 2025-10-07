@@ -17,6 +17,8 @@ return new class extends Migration
             $table->text('description')->nullable();
             $table->string('test_type');
             $table->integer('duration'); // In minutes
+            $table->timestamp('opens_at')->nullable();
+            $table->timestamp('closes_at')->nullable();
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
             $table->string('status')->default('active');
             $table->timestamps();

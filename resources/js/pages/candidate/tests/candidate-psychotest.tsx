@@ -15,30 +15,92 @@ import { useEffect, useState } from 'react';
 
 interface Question {
     id: number;
-    question: string;
-    options: string[];
+    text: string;
+    choices: Choice[];
+}
+
+interface Choice {
+    id: number;
+    text: string;
+    value: number;
+}
+
+interface Application {
+    id: number;
+    vacancy: {
+        title: string;
+        company: string;
+        psychotest_name: string;
+    };
+}
+
+interface TestStatus {
+    is_completed: boolean;
+    completed_at?: string;
+    score?: number;
+    can_retake: boolean;
 }
 
 type PageProps = InertiaPageProps & {
+    application: Application;
     questions: Question[];
-    userAnswers: Record<number, string>;
+    existingAnswers: Record<number, number>;
+    timeLimit: number;
+    testStatus: TestStatus;
 };
 
 export default function CandidateQuestions() {
-    const { questions, userAnswers: initialUserAnswers } = usePage<PageProps>().props;
+    const { application, questions, existingAnswers, timeLimit, testStatus } = usePage<PageProps>().props;
     const [currentQuestion, setCurrentQuestion] = useState(0);
-    const [userAnswers, setUserAnswers] = useState<Record<number, string>>(initialUserAnswers || {});
+    const [userAnswers, setUserAnswers] = useState<Record<number, number>>(existingAnswers || {});
     const [markedQuestions, setMarkedQuestions] = useState(Array(questions.length).fill(false));
-    const [timeLeft, setTimeLeft] = useState(30 * 60); // Timer 30 menit
-    const [testCompleted, setTestCompleted] = useState(false);
+    const [timeLeft, setTimeLeft] = useState(timeLimit || 3600); // Default 1 hour
+    const [testCompleted, setTestCompleted] = useState(testStatus?.is_completed || false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Prevent back button if test is completed
+    useEffect(() => {
+        if (testStatus?.is_completed) {
+            // Redirect to status page if test is already completed
+            router.visit(`/candidate/application/${application.id}/status`);
+            return;
+        }
+
+        const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+            if (!testCompleted) {
+                e.preventDefault();
+                e.returnValue = 'Are you sure you want to leave? Your progress may be lost.';
+                return e.returnValue;
+            }
+        };
+
+        const handlePopState = (e: PopStateEvent) => {
+            if (testCompleted) {
+                e.preventDefault();
+                window.history.pushState(null, '', window.location.href);
+                alert('You cannot go back after completing the test.');
+            }
+        };
+
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        window.addEventListener('popstate', handlePopState);
+
+        // Push current state to prevent back navigation
+        window.history.pushState(null, '', window.location.href);
+
+        return () => {
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+            window.removeEventListener('popstate', handlePopState);
+        };
+    }, [testCompleted, testStatus, application.id]);
 
     useEffect(() => {
         if (timeLeft > 0 && !testCompleted) {
             const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
             return () => clearTimeout(timer);
         } else if (timeLeft === 0 && !testCompleted) {
-            setTestCompleted(true);
+            handleSubmitTest(); // Auto-submit when time is up
         }
     }, [timeLeft, testCompleted]);
 
@@ -48,18 +110,22 @@ export default function CandidateQuestions() {
         return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     };
 
-    const handleAnswer = async (answer: string) => {
-        const questionId = questions[currentQuestion].id;
-        setUserAnswers((prev) => ({ ...prev, [questionId]: answer }));
+    const handleAnswerChange = async (questionId: number, choiceId: number) => {
+        // Update local state
+        setUserAnswers((prev) => ({ ...prev, [questionId]: choiceId }));
 
+        // Save to backend
         try {
-            await axios.post('/candidate/questions/answer', { question_id: questionId, answer: answer });
+            await axios.post('/candidate/questions/answer', {
+                application_id: application.id,
+                question_id: questionId,
+                choice_id: choiceId
+            });
         } catch (error) {
             console.error('Failed to save answer:', error);
+            // Could show a toast notification here
         }
-    };
-
-    const nextQuestion = () => {
+    };    const nextQuestion = () => {
         if (currentQuestion < questions.length - 1) setCurrentQuestion((prev) => prev + 1);
     };
 
@@ -88,9 +154,36 @@ export default function CandidateQuestions() {
         return markedQuestions[index] ? 'unmarked-marked' : 'unmarked';
     };
 
-    const handleSubmitTest = () => {
-        // Submit test logic here
-        setTestCompleted(true);
+    const handleAnswer = (choiceId: string) => {
+        const questionId = questions[currentQuestion].id;
+        handleAnswerChange(questionId, parseInt(choiceId));
+    };
+
+    const handleSubmitTest = async () => {
+        if (isSubmitting) return;
+        
+        setIsSubmitting(true);
+        
+        try {
+            const response = await axios.post(`/candidate/application/${application.id}/submit`);
+            
+            if (response.data.success) {
+                setTestCompleted(true);
+                
+                // Prevent going back
+                window.history.pushState(null, '', window.location.href);
+                
+                // Redirect to status page
+                setTimeout(() => {
+                    router.visit(`/candidate/application/${application.id}/status`);
+                }, 2000);
+            }
+        } catch (error) {
+            console.error('Failed to submit test:', error);
+            alert('Failed to submit test. Please try again.');
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const handleBackToDashboard = () => {
@@ -108,7 +201,7 @@ export default function CandidateQuestions() {
             {/* Header */}
             <header className="sticky top-0 z-10 bg-white px-4 py-3 shadow-sm">
                 <div className="mx-auto flex max-w-7xl items-center justify-between">
-                    <h1 className="text-xl font-medium text-slate-900">PT AmbaTech</h1>
+                    <h1 className="text-xl font-medium text-slate-900">{application.vacancy.company}</h1>
                     <div className="flex items-center gap-3 sm:gap-4">
                         <div className="hidden items-center gap-2 sm:flex">
                             <Progress value={progress} className="h-2 w-24 bg-slate-200 sm:w-32" />
@@ -242,26 +335,26 @@ export default function CandidateQuestions() {
                                 </CardHeader>
 
                                 <CardContent className="px-4 pt-6 pb-6 sm:px-6">
-                                    <p className="mb-5 text-base font-medium sm:text-lg">{questions[currentQuestion].question}</p>
+                                    <p className="mb-5 text-base font-medium sm:text-lg">{questions[currentQuestion].text}</p>
                                     <RadioGroup
-                                        value={userAnswers[questions[currentQuestion].id] || ''}
+                                        value={userAnswers[questions[currentQuestion].id]?.toString() || ''}
                                         onValueChange={handleAnswer}
                                         className="space-y-3"
                                     >
-                                        {questions[currentQuestion].options.map((option, idx) => (
+                                        {questions[currentQuestion].choices.map((choice) => (
                                             <div
-                                                key={idx}
+                                                key={choice.id}
                                                 className={cn(
                                                     'flex items-center space-x-2 rounded-lg border p-3 sm:p-4',
-                                                    userAnswers[questions[currentQuestion].id] === option
+                                                    userAnswers[questions[currentQuestion].id] === choice.id
                                                         ? 'border-green-200 bg-green-50'
                                                         : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50',
                                                     'transition-all',
                                                 )}
                                             >
-                                                <RadioGroupItem value={option} id={`option-${idx}`} />
-                                                <Label htmlFor={`option-${idx}`} className="flex-grow cursor-pointer">
-                                                    {option}
+                                                <RadioGroupItem value={choice.id.toString()} id={`choice-${choice.id}`} />
+                                                <Label htmlFor={`choice-${choice.id}`} className="flex-grow cursor-pointer">
+                                                    {choice.text}
                                                 </Label>
                                             </div>
                                         ))}
@@ -366,8 +459,12 @@ export default function CandidateQuestions() {
                             </div>
                         </div>
 
-                        <Button onClick={handleSubmitTest} className="mt-4 w-full bg-slate-600 hover:bg-slate-700">
-                            Akhiri Tes
+                        <Button 
+                            onClick={handleSubmitTest} 
+                            className="mt-4 w-full bg-slate-600 hover:bg-slate-700"
+                            disabled={isSubmitting}
+                        >
+                            {isSubmitting ? 'Submitting...' : 'Akhiri Tes'}
                         </Button>
                     </div>
                 </div>

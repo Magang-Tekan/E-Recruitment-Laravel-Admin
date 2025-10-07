@@ -15,8 +15,17 @@ class QuestionPack extends Model
         'description',
         'test_type',
         'duration',
+        'opens_at',
+        'closes_at',
         'user_id',
         'status'
+    ];
+
+    protected $casts = [
+        'opens_at' => 'datetime',
+        'closes_at' => 'datetime',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
     ];
 
     /**

@@ -168,9 +168,9 @@ class ApplicationStageController extends Controller
                             $baseData['assessment'] = [
                                 'answers' => $application->userAnswers->map(fn($answer) => [
                                     'question' => $answer->question->question_text,
-                                    'answer' => $answer->choice->choice_text,
-                                    'is_correct' => $answer->choice->is_correct,
-                                    'score' => $answer->choice->is_correct ? 100 : 0,
+                                    'answer' => $answer->choice?->choice_text ?? 'No answer selected',
+                                    'is_correct' => $answer->choice?->is_correct ?? false,
+                                    'score' => $answer->choice?->is_correct ? 100 : 0,
                                     'choices' => $answer->question->choices->map(fn($choice) => [
                                         'text' => $choice->choice_text,
                                         'is_correct' => $choice->is_correct,
@@ -304,7 +304,7 @@ class ApplicationStageController extends Controller
                     $userAnswers = $application->userAnswers()->with('choice')->get();
                     if ($userAnswers->isNotEmpty()) {
                         $correctAnswers = $userAnswers->filter(function($answer) {
-                            return $answer->choice && $answer->choice->is_correct;
+                            return $answer->choice && $answer->choice?->is_correct ?? false;
                         })->count();
                         $totalAnswers = $userAnswers->count();
                         $calculatedScore = round(($correctAnswers / $totalAnswers) * 100, 2);
@@ -795,13 +795,13 @@ class ApplicationStageController extends Controller
                 'assessment' => [
                     'answers' => $application->userAnswers->map(fn($answer) => [
                         'question' => $answer->question->question_text,
-                        'answer' => $answer->choice->choice_text,
-                        'is_correct' => $answer->choice->is_correct,
-                        'score' => $answer->choice->is_correct ? 100 : 0,
+                        'answer' => $answer->choice?->choice_text ?? 'No answer selected',
+                        'is_correct' => $answer->choice?->is_correct ?? false,
+                        'score' => $answer->choice?->is_correct ? 100 : 0,
                     ])->toArray(),
                     'total_score' => $application->userAnswers->count() > 0 
                         ? $application->userAnswers->filter(function($answer) {
-                            return $answer->choice->is_correct;
+                            return $answer->choice?->is_correct ?? false;
                         })->count() / $application->userAnswers->count() * 100
                         : 0,
                 ]
@@ -1052,7 +1052,7 @@ class ApplicationStageController extends Controller
         // Calculate assessment result
         $assessmentScore = $application->userAnswers->count() > 0 
             ? $application->userAnswers->filter(function($answer) {
-                return $answer->choice->is_correct;
+                return $answer->choice?->is_correct ?? false;
             })->count() / $application->userAnswers->count() * 100
             : 0;
 
@@ -1145,7 +1145,7 @@ class ApplicationStageController extends Controller
         // Calculate assessment score
         $assessmentScore = $application->userAnswers->count() > 0 
             ? $application->userAnswers->filter(function($answer) {
-                return $answer->choice->is_correct;
+                return $answer->choice?->is_correct ?? false;
             })->count() / $application->userAnswers->count() * 100
             : 0;
 
@@ -1158,8 +1158,8 @@ class ApplicationStageController extends Controller
                 return [
                     'question_id' => $answer->question_id,
                     'question_text' => $answer->question->question_text,
-                    'choice_text' => $answer->choice->choice_text,
-                    'is_correct' => $answer->choice->is_correct,
+                    'choice_text' => $answer->choice?->choice_text ?? 'No answer selected',
+                    'is_correct' => $answer->choice?->is_correct ?? false,
                 ];
             })
         ]);
@@ -1232,8 +1232,8 @@ class ApplicationStageController extends Controller
                                     ]),
                                 ],
                                 'selected_answer' => [
-                                    'text' => $answer->choice->choice_text,
-                                    'is_correct' => $answer->choice->is_correct,
+                                    'text' => $answer->choice?->choice_text ?? 'No answer selected',
+                                    'is_correct' => $answer->choice?->is_correct ?? false,
                                 ],
                             ])
                             : [
@@ -1514,7 +1514,7 @@ class ApplicationStageController extends Controller
         $assessmentScore = 0;
         if ($application->userAnswers->count() > 0) {
             $correctAnswers = $application->userAnswers->filter(function($answer) {
-                return $answer->choice && $answer->choice->is_correct;
+                return $answer->choice && $answer->choice?->is_correct ?? false;
             })->count();
             $totalAnswers = $application->userAnswers->count();
             $assessmentScore = round(($correctAnswers / $totalAnswers) * 100, 2);
@@ -1577,8 +1577,8 @@ class ApplicationStageController extends Controller
                                 ]),
                             ],
                             'selected_answer' => [
-                                'text' => $answer->choice->choice_text,
-                                'is_correct' => $answer->choice->is_correct,
+                                'text' => $answer->choice?->choice_text ?? 'No answer selected',
+                                'is_correct' => $answer->choice?->is_correct ?? false,
                             ],
                         ]),
                     ],
@@ -1800,61 +1800,107 @@ class ApplicationStageController extends Controller
                 }
 
                 // Handle interview passing - Check if candidate has all scores from all 3 stages
-                $administrationHistory = $application->history()
-                    ->whereHas('status', fn($q) => $q->where('code', 'admin_selection'))
-                    ->where('is_active', false)
-                    ->whereNotNull('score')
-                    ->first();
+                if ($validated['status'] === 'passed') {
+                    $administrationHistory = $application->history()
+                        ->whereHas('status', fn($q) => $q->where('code', 'admin_selection'))
+                        ->where('is_active', false)
+                        ->whereNotNull('score')
+                        ->first();
 
-                $assessmentHistory = $application->history()
-                    ->whereHas('status', fn($q) => $q->where('code', 'psychotest'))
-                    ->where('is_active', false)
-                    ->whereNotNull('score')
-                    ->first();
+                    $assessmentHistory = $application->history()
+                        ->whereHas('status', fn($q) => $q->where('code', 'psychotest'))
+                        ->where('is_active', false)
+                        ->whereNotNull('score')
+                        ->first();
 
-                $interviewHistory = $application->history()
-                    ->whereHas('status', fn($q) => $q->where('code', 'interview'))
-                    ->where('is_active', false)
-                    ->whereNotNull('score')
-                    ->first();
+                    // Get the current interview history (the one we just updated)
+                    $interviewHistory = $application->history()
+                        ->whereHas('status', fn($q) => $q->where('code', 'interview'))
+                        ->where('is_active', false)
+                        ->whereNotNull('score')
+                        ->orderBy('created_at', 'desc')
+                        ->first();
 
-                // If all 3 scores exist, create application report and mark as pending
-                if ($administrationHistory?->score && $assessmentHistory?->score && $interviewHistory?->score) {
-                    $overallScore = round(($administrationHistory->score + $assessmentHistory->score + $interviewHistory->score) / 3, 2);
+                    // If all 3 scores exist, create application report and mark as pending
+                    if ($administrationHistory?->score && $assessmentHistory?->score && $interviewHistory?->score) {
+                        $overallScore = round(($administrationHistory->score + $assessmentHistory->score + $interviewHistory->score) / 3, 2);
 
-                    // Create or update application report
-                    $application->report()->updateOrCreate(
-                        ['application_id' => $application->id],
-                        [
-                            'overall_score' => $overallScore,
-                            'final_decision' => 'pending',
-                            'final_notes' => null, // Will be filled when HR makes final decision
-                            'decision_made_by' => null,
-                            'decision_made_at' => null,
-                        ]
-                    );
+                        // Create or update application report
+                        $application->report()->updateOrCreate(
+                            ['application_id' => $application->id],
+                            [
+                                'overall_score' => $overallScore,
+                                'final_decision' => 'pending',
+                                'final_notes' => null, // Will be filled when HR makes final decision
+                                'decision_made_by' => null,
+                                'decision_made_at' => null,
+                            ]
+                        );
 
-                    // Keep the application status as interview (ID 3) for now
-                    // The application will only change status when final decision is made in reports
-                    $application->update(['status_id' => $interviewStatus->id]);
+                        // Keep the application status as interview (ID 3) for now
+                        // The application will only change status when final decision is made in reports
+                        $application->update(['status_id' => $interviewStatus->id]);
 
-                    DB::commit();
-                    
-                    // Redirect to reports page to show this candidate is ready for final decision
-                    $companyId = $application->vacancyPeriod->vacancy->company_id;
-                    $periodId = $application->vacancyPeriod->period_id;
-                    
-                    return redirect()->route('admin.recruitment.reports.index', [
-                        'company' => $companyId,
-                        'period' => $periodId
-                    ])->with('success', 'Interview completed successfully. Candidate moved to reports for final decision.');
-                } else {
-                    // If not all scores are available, just keep in interview stage
-                    $application->update(['status_id' => $interviewStatus->id]);
-                    
-                    DB::commit();
-                    return back()->with('success', 'Interview completed successfully');
+                        DB::commit();
+                        
+                        // Redirect to reports page to show this candidate is ready for final decision
+                        $application->load(['vacancyPeriod.vacancy.company', 'vacancyPeriod.period']);
+                        $companyId = $application->vacancyPeriod->vacancy->company_id;
+                        $periodId = $application->vacancyPeriod->period_id;
+                        
+                        return redirect()->route('admin.recruitment.reports', [
+                            'company' => $companyId,
+                            'period' => $periodId
+                        ])->with('success', 'Interview completed successfully. Candidate moved to reports for final decision.');
+                    } else {
+                        // If not all scores are available, just keep in interview stage
+                        $application->update(['status_id' => $interviewStatus->id]);
+                        
+                        DB::commit();
+                        return back()->with('success', 'Interview completed successfully. Waiting for other stage scores.');
+                    }
                 }
+            }
+
+            // For interview stage rejection
+            if ($mappedStage === 'interview' && $validated['status'] === 'rejected') {
+                // Get the rejected status
+                $rejectedStatus = Status::where('code', 'rejected')->first();
+                    
+                if (!$rejectedStatus) {
+                    throw new \Exception('Rejected status not found');
+                }
+
+                // Update the current interview history and mark as completed & rejected
+                $currentInterviewHistory = $application->history()
+                    ->where('is_active', true)
+                    ->whereHas('status', function($q) {
+                        $q->where('code', 'interview');
+                    })
+                    ->first();
+
+                if ($currentInterviewHistory) {
+                    $currentInterviewHistory->update([
+                        'score' => $validated['score'] ?? null,
+                        'notes' => $validated['notes'] ?? null,
+                        'completed_at' => now(),
+                        'reviewed_by' => Auth::id(),
+                        'reviewed_at' => now(),
+                        'is_active' => false, // Deactivate since rejected
+                    ]);
+                }
+
+                // Deactivate ALL other active histories
+                $application->history()
+                    ->where('is_active', true)
+                    ->where('id', '!=', $currentInterviewHistory?->id)
+                    ->update(['is_active' => false]);
+
+                // Update application status to rejected
+                $application->update(['status_id' => $rejectedStatus->id]);
+
+                DB::commit();
+                return back()->with('success', 'Candidate rejected at interview stage');
             }
 
             // For assessment stage passing to interview
@@ -1872,7 +1918,7 @@ class ApplicationStageController extends Controller
                 $userAnswers = $application->userAnswers()->with('choice')->get();
                 if ($userAnswers->isNotEmpty()) {
                     $correctAnswers = $userAnswers->filter(function($answer) {
-                        return $answer->choice && $answer->choice->is_correct;
+                        return $answer->choice && $answer->choice?->is_correct ?? false;
                     })->count();
                     $totalAnswers = $userAnswers->count();
                     $calculatedScore = round(($correctAnswers / $totalAnswers) * 100, 2);
@@ -1948,7 +1994,7 @@ class ApplicationStageController extends Controller
                 $userAnswers = $application->userAnswers()->with('choice')->get();
                 if ($userAnswers->isNotEmpty()) {
                     $correctAnswers = $userAnswers->filter(function($answer) {
-                        return $answer->choice && $answer->choice->is_correct;
+                        return $answer->choice && $answer->choice?->is_correct ?? false;
                     })->count();
                     $totalAnswers = $userAnswers->count();
                     $calculatedScore = round(($correctAnswers / $totalAnswers) * 100, 2);
@@ -2107,7 +2153,7 @@ class ApplicationStageController extends Controller
      */
     public function approve(Request $request, $id)
     {
-        $application = Application::findOrFail($id);
+        $application = Application::with(['status', 'vacancyPeriod.vacancy', 'vacancyPeriod.period'])->findOrFail($id);
         
         // Determine the current stage based on the application status
         $currentStatus = $application->status;
@@ -2140,7 +2186,7 @@ class ApplicationStageController extends Controller
      */
     public function reject(Request $request, $id)
     {
-        $application = Application::findOrFail($id);
+        $application = Application::with(['status', 'vacancyPeriod.vacancy', 'vacancyPeriod.period'])->findOrFail($id);
         
         // Determine the current stage based on the application status
         $currentStatus = $application->status;
@@ -2175,7 +2221,7 @@ class ApplicationStageController extends Controller
         // Calculate score from user answers
         $score = $application->userAnswers->count() > 0 
             ? $application->userAnswers->filter(function($answer) {
-                return $answer->choice->is_correct;
+                return $answer->choice?->is_correct ?? false;
             })->count() / $application->userAnswers->count() * 100
             : 0;
 
@@ -2223,7 +2269,7 @@ class ApplicationStageController extends Controller
         // Calculate assessment score
         $assessmentScore = $application->userAnswers->count() > 0 
             ? $application->userAnswers->filter(function($answer) {
-                return $answer->choice->is_correct;
+                return $answer->choice?->is_correct ?? false;
             })->count() / $application->userAnswers->count() * 100
             : 0;
 
@@ -2248,8 +2294,8 @@ class ApplicationStageController extends Controller
             'questions' => $application->userAnswers->map(fn($answer) => [
                 'id' => $answer->question_id,
                 'question' => $answer->question->question_text,
-                'answer' => $answer->choice->choice_text,
-                'score' => $answer->choice->is_correct ? 100 : 0,
+                'answer' => $answer->choice?->choice_text ?? 'No answer selected',
+                'score' => $answer->choice?->is_correct ?? false ? 100 : 0,
                 'maxScore' => 100,
                 'category' => 'psychological_test',
             ])->toArray(),

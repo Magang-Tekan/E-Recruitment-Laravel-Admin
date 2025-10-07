@@ -21,6 +21,8 @@ interface QuestionPack {
   description: string;
   test_type: string;
   duration: number;
+  opens_at?: string;
+  closes_at?: string;
   questions: Question[];
   created_at: string;
   updated_at: string;
@@ -41,7 +43,16 @@ export default function ViewQuestionPack({ questionPack }: Props) {
   ];
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString();
+    if (!dateString) return 'Not set';
+    const date = new Date(dateString);
+    return date.toLocaleString('en-US', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
   };
 
   const formatDuration = (minutes: number): string => {
@@ -127,6 +138,20 @@ export default function ViewQuestionPack({ questionPack }: Props) {
                 <p className="text-sm text-gray-500">Last Updated</p>
                 <p className="font-medium">{formatDate(questionPack.updated_at)}</p>
               </div>
+              
+              {questionPack.opens_at && (
+                <div className="space-y-1">
+                  <p className="text-sm text-gray-500">Opens At</p>
+                  <p className="font-medium">{formatDate(questionPack.opens_at)}</p>
+                </div>
+              )}
+              
+              {questionPack.closes_at && (
+                <div className="space-y-1">
+                  <p className="text-sm text-gray-500">Closes At</p>
+                  <p className="font-medium">{formatDate(questionPack.closes_at)}</p>
+                </div>
+              )}
               
               <div className="space-y-1 md:col-span-2">
                 <p className="text-sm text-gray-500">Description</p>
