@@ -85,8 +85,17 @@ export interface ApplicationInfo {
                 id: number;
                 name: string;
             };
+            question_pack?: {
+                test_type: string;
+                pack_name: string;
+            };
         };
     };
+    // Direct score and reviewer info from backend transformation
+    score?: number;
+    reviewed_by?: string;
+    completed_at?: string;
+    created_at: string;
     stages?: {
         psychological_test?: {
             score?: number;
@@ -101,6 +110,21 @@ export interface ApplicationInfo {
             };
         };
     };
+    // Add history array to track all stages
+    history?: Array<{
+        id: number;
+        stage: string;
+        status_name: string;
+        status_code: string;
+        score?: number;
+        notes?: string;
+        processed_at?: string;
+        completed_at?: string;
+        reviewed_at?: string;
+        reviewer_name?: string;
+        is_active: boolean;
+        is_completed: boolean;
+    }>;
     assessment?: {
         answers?: Array<{
             question: string;
@@ -109,6 +133,11 @@ export interface ApplicationInfo {
             score: number;
         }>;
         total_score?: number;
+    };
+    report?: {
+        overall_score?: number;
+        final_notes?: string;
+        final_decision?: string;
     };
     history?: Array<{
         processed_at: string;

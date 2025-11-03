@@ -44,14 +44,21 @@ class PeriodSeeder extends Seeder
                 'name' => 'Q3 2025 Recruitment',
                 'description' => 'Third quarter recruitment campaign',
                 'start_time' => '2025-07-01 00:00:00',
-                'end_time' => '2025-12-31 23:59:59', // Diperpanjang sampai akhir tahun
+                'end_time' => '2025-09-30 23:59:59',
             ],
             [
                 'id' => 4,
-                'name' => 'Q4 2025 Recruitment',
-                'description' => 'Fourth quarter recruitment campaign',
-                'start_time' => '2025-09-01 00:00:00',
+                'name' => 'Q4 2025 Recruitment - ACTIVE',
+                'description' => 'Fourth quarter recruitment campaign - Currently Open for Applications',
+                'start_time' => '2025-10-01 00:00:00',
                 'end_time' => '2025-12-31 23:59:59',
+            ],
+            [
+                'id' => 5,
+                'name' => 'Year-End 2025 Special Recruitment',
+                'description' => 'Special recruitment campaign for urgent positions - Open Now',
+                'start_time' => '2025-10-15 00:00:00',
+                'end_time' => '2026-01-15 23:59:59',
             ],
         ];
 
@@ -63,19 +70,22 @@ class PeriodSeeder extends Seeder
             $periods[] = $period;
         }
 
-        // Associate periods with vacancies
+        // Associate periods with vacancies - Focus on OPEN periods (4 & 5)
         foreach ($vacancies as $index => $vacancy) {
             // Clear existing period associations
             $vacancy->periods()->detach();
             
-            if ($index === 0) {
-                // First vacancy (Software Engineer) - Q3 (aktif sekarang) dan Q4
-                $vacancy->periods()->attach([$periods[2]->id, $periods[3]->id]);
-            } elseif ($index === 1) {
-                // Second vacancy - Q2 and Q4
-                $vacancy->periods()->attach([$periods[1]->id, $periods[3]->id]);
+            if ($index <= 2) {
+                // First 3 vacancies - Associate with BOTH open periods for maximum testing opportunities
+                $vacancy->periods()->attach([$periods[3]->id, $periods[4]->id]); // Q4 and Year-End (both open)
+            } elseif ($index <= 5) {
+                // Next 3 vacancies - Q4 period only
+                $vacancy->periods()->attach([$periods[3]->id]); // Q4 (open)
+            } elseif ($index <= 7) {
+                // Next 2 vacancies - Year-End period only  
+                $vacancy->periods()->attach([$periods[4]->id]); // Year-End (open)
             } else {
-                // Random periods for remaining vacancies
+                // Remaining vacancies - Mix of open and closed periods
                 $availablePeriods = collect($periods)->pluck('id')->toArray();
                 shuffle($availablePeriods);
                 $selectedPeriods = array_slice($availablePeriods, 0, rand(1, 2));

@@ -41,7 +41,12 @@ class ApplicationStageController extends Controller
             'user.candidatesProfile', // Basic candidate info
             'vacancyPeriod.vacancy.company', // Company info
             'vacancyPeriod.period', // Period info
-            'history' => function ($query) use ($stage) {
+            'history' => function ($query) {
+                $query->with(['status', 'reviewer'])
+                    ->latest(); // Remove is_active filter to show all history
+            },
+            // Add specific stage history for display
+            'currentStageHistory' => function ($query) use ($stage) {
                 $query->with(['status', 'reviewer'])
                     ->whereHas('status', fn($q) => $q->where('stage', $stage))
                     ->where('is_active', true)
@@ -64,10 +69,20 @@ class ApplicationStageController extends Controller
         }
 
         // Get applications that should be in this stage
-        $query->whereHas('history', function ($q) use ($stage) {
-            $q->whereHas('status', fn($sq) => $sq->where('stage', $stage))
-                ->where('is_active', true);
-        });
+        if ($stage === 'psychological_test') {
+            // For assessment/psychological_test stage, show ALL candidates who have been through this stage
+            // regardless of whether they're still active or have been reviewed
+            $query->whereHas('history', function ($q) use ($stage) {
+                $q->whereHas('status', fn($sq) => $sq->where('stage', $stage));
+                // Don't filter by is_active for psychological test - show all including reviewed ones
+            });
+        } else {
+            // For other stages, only show active candidates
+            $query->whereHas('history', function ($q) use ($stage) {
+                $q->whereHas('status', fn($sq) => $sq->where('stage', $stage))
+                    ->where('is_active', true);
+            });
+        }
 
         // Add stage-specific relations and data
         switch ($stage) {
@@ -104,8 +119,19 @@ class ApplicationStageController extends Controller
 
         $applications = $query->paginate(10)
             ->through(function ($application) use ($stage) {
-                $currentHistory = $application->history->first();
-                $status = $currentHistory?->status;
+                // Get current stage history (active history for this specific stage)
+                $currentStageHistory = $application->history
+                    ->filter(fn($h) => $h->status->stage === $stage && $h->is_active)
+                    ->first();
+                    
+                // If no active history for current stage, try to find any history for this stage
+                if (!$currentStageHistory) {
+                    $currentStageHistory = $application->history
+                        ->filter(fn($h) => $h->status->stage === $stage)
+                        ->first();
+                }
+                
+                $status = $currentStageHistory?->status;
                 
                 $baseData = [
                     'id' => $application->id,
@@ -114,11 +140,26 @@ class ApplicationStageController extends Controller
                     'position' => $application->vacancyPeriod->vacancy->title,
                     'company' => $application->vacancyPeriod->vacancy->company->name,
                     'status' => $status ? $status->name : 'Pending',
-                    'score' => $currentHistory?->score,
-                    'scheduled_at' => $currentHistory?->scheduled_at,
-                    'completed_at' => $currentHistory?->completed_at,
-                    'notes' => $currentHistory?->notes,
-                    'reviewed_by' => $currentHistory?->reviewer?->name,
+                    'score' => $currentStageHistory?->score,
+                    'scheduled_at' => $currentStageHistory?->scheduled_at,
+                    'completed_at' => $currentStageHistory?->completed_at,
+                    'notes' => $currentStageHistory?->notes,
+                    'reviewed_by' => $currentStageHistory?->reviewer?->name,
+                    // Add all history for UI display
+                    'history' => $application->history->map(fn($history) => [
+                        'id' => $history->id,
+                        'stage' => $history->status->stage,
+                        'status_name' => $history->status->name,
+                        'status_code' => $history->status->code,
+                        'score' => $history->score,
+                        'notes' => $history->notes,
+                        'processed_at' => $history->processed_at,
+                        'completed_at' => $history->completed_at,
+                        'reviewed_at' => $history->reviewed_at,
+                        'reviewer_name' => $history->reviewer?->name,
+                        'is_active' => $history->is_active,
+                        'is_completed' => !is_null($history->completed_at),
+                    ])->sortBy('processed_at')->values(),
                 ];
 
                 // Add candidate profile data
@@ -182,14 +223,14 @@ class ApplicationStageController extends Controller
                         break;
 
                     case 'interview':
-                        if ($currentHistory) {
+                        if ($currentStageHistory) {
                             $baseData['interview'] = [
-                                'interviewer' => $currentHistory->reviewer ? [
-                                    'name' => $currentHistory->reviewer->name,
-                                    'email' => $currentHistory->reviewer->email,
+                                'interviewer' => $currentStageHistory->reviewer ? [
+                                    'name' => $currentStageHistory->reviewer->name,
+                                    'email' => $currentStageHistory->reviewer->email,
                                 ] : null,
-                                'feedback' => $currentHistory->notes,
-                                'score' => $currentHistory->score,
+                                'feedback' => $currentStageHistory->notes,
+                                'score' => $currentStageHistory->score,
                             ];
                         }
                         break;
@@ -300,15 +341,20 @@ class ApplicationStageController extends Controller
                 $calculatedScore = $validated['score'] ?? null;
                 
                 if ($stage === 'psychological_test') {
-                    // For assessment, calculate score from user answers
-                    $userAnswers = $application->userAnswers()->with('choice')->get();
-                    if ($userAnswers->isNotEmpty()) {
-                        $correctAnswers = $userAnswers->filter(function($answer) {
-                            return $answer->choice && $answer->choice?->is_correct ?? false;
-                        })->count();
-                        $totalAnswers = $userAnswers->count();
-                        $calculatedScore = round(($correctAnswers / $totalAnswers) * 100, 2);
+                    // Load vacancy relation if not already loaded
+                    $application->load('vacancyPeriod.vacancy.questionPack');
+                    
+                    // For psychological test, use the new scoring logic
+                    $calculatedScore = $this->calculateTestScore($application);
+                    
+                    // If psychological test returns null, it means manual scoring is required
+                    if ($calculatedScore === null && !isset($validated['score'])) {
+                        // Don't proceed with automatic passing - require manual scoring
+                        return back()->withErrors(['error' => 'This is a psychological test that requires manual scoring. Please use the export feature to manually evaluate and score the test.']);
                     }
+                    
+                    // Use manual score if provided, otherwise use calculated score
+                    $calculatedScore = $validated['score'] ?? $calculatedScore ?? 0;
                 }
 
                 // Update current history with score and notes
@@ -447,9 +493,17 @@ class ApplicationStageController extends Controller
             'vacancyPeriod' => function($query) {
                 $query->select('id', 'vacancy_id', 'period_id')
                     ->with(['vacancy:id,title,company_id', 'period:id,name,start_time,end_time']);
+            },
+            // Load all history, not just active ones
+            'history' => function($query) {
+                $query->with(['status', 'reviewer'])
+                    ->latest();
             }
         ])
-        ->where('status_id', $administrationStatus->id);
+        // Show applications that have been through administration stage (not just currently in it)
+        ->whereHas('history', function($query) use ($administrationStatus) {
+            $query->where('status_id', $administrationStatus->id);
+        });
 
         // Filter by company if provided
         if ($request->has('company')) {
@@ -470,8 +524,13 @@ class ApplicationStageController extends Controller
         // Get paginated results
         $applications = $query->orderBy('created_at', 'desc')->paginate(50)->withQueryString();
 
-        // Transform the data to include position
+        // Transform the data to include position and all history
         $transformedData = collect($applications->items())->map(function ($application) {
+            // Get administration history specifically for score and reviewer
+            $adminHistory = $application->history->filter(function ($history) {
+                return $history->status && $history->status->stage === 'administrative_selection';
+            })->first();
+            
             $data = [
                 'id' => $application->id,
                 'user' => [
@@ -485,6 +544,25 @@ class ApplicationStageController extends Controller
                     ]
                 ],
                 'created_at' => $application->created_at,
+                // Add direct score and reviewer for easy access
+                'score' => $adminHistory?->score,
+                'reviewed_by' => $adminHistory?->reviewer?->name,
+                'completed_at' => $adminHistory?->completed_at,
+                // Add all history for UI display
+                'history' => $application->history->map(fn($history) => [
+                    'id' => $history->id,
+                    'stage' => $history->status->stage,
+                    'status_name' => $history->status->name,
+                    'status_code' => $history->status->code,
+                    'score' => $history->score,
+                    'notes' => $history->notes,
+                    'processed_at' => $history->processed_at,
+                    'completed_at' => $history->completed_at,
+                    'reviewed_at' => $history->reviewed_at,
+                    'reviewer_name' => $history->reviewer?->name,
+                    'is_active' => $history->is_active,
+                    'is_completed' => !is_null($history->completed_at),
+                ])->sortBy('processed_at')->values(),
             ];
             return $data;
         })->all();
@@ -720,7 +798,8 @@ class ApplicationStageController extends Controller
             'user:id,name,email',
             'vacancyPeriod' => function($query) {
                 $query->select('id', 'vacancy_id', 'period_id')
-                    ->with(['vacancy:id,title,company_id', 'period:id,name,start_time,end_time']);
+                    ->with(['vacancy:id,title,company_id,question_pack_id', 'period:id,name,start_time,end_time'])
+                    ->with(['vacancy.questionPack:id,test_type,pack_name']); // Add questionPack relation
             },
             'userAnswers' => function($query) {
                 $query->with([
@@ -728,19 +807,18 @@ class ApplicationStageController extends Controller
                     'choice:id,choice_text,is_correct'
                 ]);
             },
-            'history' => function($query) use ($assessmentStatus) {
-                $query->where('status_id', $assessmentStatus->id)
-                    ->where('is_active', true)
-                    ->select('id', 'application_id', 'status_id', 'processed_at', 'completed_at', 'score', 'notes', 'reviewed_by')
-                    ->with(['status', 'reviewer'])
+            // Load all history, not just active assessment history
+            'history' => function($query) {
+                $query->with(['status', 'reviewer'])
                     ->latest();
             }
         ])
-        // Only show applications that are currently in assessment stage
-        ->where('status_id', $assessmentStatus->id)
-        ->whereHas('history', function($query) use ($assessmentStatus) {
+        // Show applications in assessment stage OR those who have been through assessment
+        ->where(function($query) use ($assessmentStatus) {
             $query->where('status_id', $assessmentStatus->id)
-                ->where('is_active', true);
+                  ->orWhereHas('history', function($q) use ($assessmentStatus) {
+                      $q->where('status_id', $assessmentStatus->id);
+                  });
         });
 
         // Filter by company if provided
@@ -774,17 +852,28 @@ class ApplicationStageController extends Controller
                 ],
                 'vacancy_period' => [
                     'vacancy' => [
-                        'title' => $application->vacancyPeriod->vacancy->title ?? 'N/A'
+                        'title' => $application->vacancyPeriod->vacancy->title ?? 'N/A',
+                        'question_pack' => $application->vacancyPeriod->vacancy->questionPack ? [
+                            'test_type' => $application->vacancyPeriod->vacancy->questionPack->test_type,
+                            'pack_name' => $application->vacancyPeriod->vacancy->questionPack->pack_name,
+                        ] : null,
                     ]
                 ],
                 'created_at' => $application->created_at,
                 'history' => $application->history->map(function($history) {
                     return [
+                        'id' => $history->id,
+                        'stage' => $history->status->stage ?? null,
+                        'status_name' => $history->status->name ?? null,
+                        'status_code' => $history->status->code ?? null,
                         'processed_at' => $history->processed_at,
                         'completed_at' => $history->completed_at,
                         'score' => $history->score,
                         'notes' => $history->notes,
+                        'reviewer_name' => $history->reviewer?->name,
                         'reviewed_by' => $history->reviewer?->name,
+                        'is_active' => $history->is_active,
+                        'is_completed' => $history->is_completed,
                     ];
                 }),
                 'stages' => [
@@ -899,18 +988,18 @@ class ApplicationStageController extends Controller
                 $query->select('id', 'vacancy_id', 'period_id')
                     ->with(['vacancy:id,title,company_id', 'period:id,name,start_time,end_time']);
             },
-            'history' => function($query) use ($interviewStatus) {
-                $query->where('status_id', $interviewStatus->id)
-                    ->where('is_active', true)
-                    ->with(['status', 'reviewer'])
+            // Load all history, not just active interview history
+            'history' => function($query) {
+                $query->with(['status', 'reviewer'])
                     ->latest();
             }
         ])
-        // Only show applications that are currently in interview stage
-        ->where('status_id', $interviewStatus->id)
-        ->whereHas('history', function($query) use ($interviewStatus) {
+        // Show applications in interview stage OR those who have been through interview
+        ->where(function($query) use ($interviewStatus) {
             $query->where('status_id', $interviewStatus->id)
-                ->where('is_active', true);
+                  ->orWhereHas('history', function($q) use ($interviewStatus) {
+                      $q->where('status_id', $interviewStatus->id);
+                  });
         });
 
         // Filter by company if provided
@@ -1126,21 +1215,19 @@ class ApplicationStageController extends Controller
             'user.candidatesProfile',
             'user.candidatesCV',
             'vacancyPeriod.vacancy.company',
+            'vacancyPeriod.vacancy.questionPack', // Add this relation
             'vacancyPeriod.period',
             'history' => function($query) {
-                $query->whereHas('status', function($q) {
-                    $q->where('stage', 'psychological_test');
-                })
-                ->where('is_active', true)
-                ->with(['status', 'reviewer'])
-                ->latest();
+                $query->with(['status', 'reviewer'])
+                    ->orderBy('processed_at', 'asc');
             },
             'userAnswers' => function($query) {
                 $query->with(['question.choices', 'choice']);
             }
         ])->findOrFail($id);
 
-        $currentHistory = $application->history->first();
+        $currentHistory = $application->history->whereIn('status.stage', ['psychological_test'])->first();
+        $firstHistory = $application->history->first(); // Get the very first history
 
         // Calculate assessment score
         $assessmentScore = $application->userAnswers->count() > 0 
@@ -1167,6 +1254,7 @@ class ApplicationStageController extends Controller
         return Inertia::render('admin/company/assessment-detail', [
             'candidate' => [
                 'id' => $application->id,
+                'application_started_at' => $firstHistory?->processed_at ?? $application->created_at,
                 'user' => [
                     'id' => $application->user->id,
                     'name' => $application->user->name,
@@ -1196,6 +1284,10 @@ class ApplicationStageController extends Controller
                         'start_time' => $application->vacancyPeriod->period->start_time,
                         'end_time' => $application->vacancyPeriod->period->end_time,
                     ],
+                    'question_pack' => $application->vacancyPeriod->vacancy->questionPack ? [
+                        'test_type' => $application->vacancyPeriod->vacancy->questionPack->test_type,
+                        'pack_name' => $application->vacancyPeriod->vacancy->questionPack->pack_name,
+                    ] : null,
                 ],
                 'history' => $application->history->map(function($history) {
                     return [
@@ -1565,7 +1657,7 @@ class ApplicationStageController extends Controller
                     ],
                     'assessment' => [
                         'status' => $assessmentHistory?->status->code ?? 'pending',
-                        'score' => $assessmentScore ?: $assessmentHistory?->score,
+                        'score' => $assessmentHistory?->score ?: $assessmentScore,
                         'started_at' => $assessmentHistory?->processed_at,
                         'completed_at' => $assessmentHistory?->completed_at,
                         'answers' => $application->userAnswers->map(fn($answer) => [
@@ -1903,6 +1995,53 @@ class ApplicationStageController extends Controller
                 return back()->with('success', 'Candidate rejected at interview stage');
             }
 
+            // For interview stage passing (hire)
+            if ($mappedStage === 'interview' && $validated['status'] === 'passed') {
+                // Get the hired status
+                $hiredStatus = Status::where('code', 'hired')->first();
+                    
+                if (!$hiredStatus) {
+                    throw new \Exception('Hired status not found');
+                }
+
+                // Update the current interview history and mark as completed & hired
+                $currentInterviewHistory = $application->history()
+                    ->where('is_active', true)
+                    ->whereHas('status', function($q) {
+                        $q->where('code', 'interview');
+                    })
+                    ->first();
+
+                if ($currentInterviewHistory) {
+                    $currentInterviewHistory->update([
+                        'score' => $validated['score'] ?? null,
+                        'notes' => $validated['notes'] ?? null,
+                        'completed_at' => now(),
+                        'reviewed_by' => Auth::id(),
+                        'reviewed_at' => now(),
+                        'is_active' => false, // Deactivate as completed
+                    ]);
+                }
+
+                // Create final hired history
+                $application->history()->create([
+                    'status_id' => $hiredStatus->id,
+                    'notes' => 'Candidate hired after successful interview',
+                    'score' => $validated['score'] ?? null,
+                    'processed_at' => now(),
+                    'completed_at' => now(),
+                    'reviewed_by' => Auth::id(),
+                    'reviewed_at' => now(),
+                    'is_active' => true,
+                ]);
+
+                // Update application status to hired
+                $application->update(['status_id' => $hiredStatus->id]);
+
+                DB::commit();
+                return back()->with('success', 'Candidate hired successfully');
+            }
+
             // For assessment stage passing to interview
             if ($mappedStage === 'psychological_test' && $validated['status'] === 'passed') {
                 // Get the interview status
@@ -1913,18 +2052,23 @@ class ApplicationStageController extends Controller
                     throw new \Exception('Interview status not found');
                 }
 
-                // Calculate score from user answers for assessment
-                $calculatedScore = null;
-                $userAnswers = $application->userAnswers()->with('choice')->get();
-                if ($userAnswers->isNotEmpty()) {
-                    $correctAnswers = $userAnswers->filter(function($answer) {
-                        return $answer->choice && $answer->choice?->is_correct ?? false;
-                    })->count();
-                    $totalAnswers = $userAnswers->count();
-                    $calculatedScore = round(($correctAnswers / $totalAnswers) * 100, 2);
+                // Load vacancy relation if not already loaded
+                $application->load('vacancyPeriod.vacancy.questionPack');
+                
+                // Use the new scoring logic
+                $calculatedScore = $this->calculateTestScore($application);
+                
+                // For psychological tests, require manual score
+                if ($calculatedScore === null) {
+                    // This is a psychological test - use manual score if provided
+                    $calculatedScore = $validated['score'] ?? null;
+                    
+                    if ($calculatedScore === null) {
+                        throw new \Exception('Manual score is required for psychological tests');
+                    }
                 }
 
-                // Update the current assessment history with calculated score and mark as completed
+                // Update the current assessment history with score and mark as completed
                 $currentAssessmentHistory = $application->history()
                     ->where('is_active', true)
                     ->whereHas('status', function($q) {
@@ -1989,18 +2133,18 @@ class ApplicationStageController extends Controller
                     throw new \Exception('Rejected status not found');
                 }
 
-                // Calculate score from user answers for assessment even if rejected
-                $calculatedScore = null;
-                $userAnswers = $application->userAnswers()->with('choice')->get();
-                if ($userAnswers->isNotEmpty()) {
-                    $correctAnswers = $userAnswers->filter(function($answer) {
-                        return $answer->choice && $answer->choice?->is_correct ?? false;
-                    })->count();
-                    $totalAnswers = $userAnswers->count();
-                    $calculatedScore = round(($correctAnswers / $totalAnswers) * 100, 2);
+                // Load vacancy relation if not already loaded
+                $application->load('vacancyPeriod.vacancy.questionPack');
+                
+                // Use the new scoring logic
+                $calculatedScore = $this->calculateTestScore($application);
+                
+                // For psychological tests, use manual score if provided
+                if ($calculatedScore === null) {
+                    $calculatedScore = $validated['score'] ?? 0;
                 }
 
-                // Update the current assessment history with calculated score and mark as completed
+                // Update the current assessment history with score and mark as completed
                 $currentAssessmentHistory = $application->history()
                     ->where('is_active', true)
                     ->whereHas('status', function($q) {
@@ -2409,6 +2553,49 @@ class ApplicationStageController extends Controller
     }
 
     /**
+     * Check if the application uses psychological test
+     */
+    private function isPsychologicalTest($application): bool
+    {
+        $questionPack = $application->vacancyPeriod->vacancy->questionPack ?? null;
+        
+        if (!$questionPack) {
+            return false;
+        }
+        
+        // Consider test types that should use manual scoring
+        $psychologicalTestTypes = ['psychological', 'psychology', 'psikologi', 'general'];
+        
+        return in_array(strtolower($questionPack->test_type), $psychologicalTestTypes);
+    }
+
+    /**
+     * Calculate score for psychological test (returns null for manual scoring)
+     * Calculate score for technical test (returns calculated score)
+     */
+    private function calculateTestScore($application): ?float
+    {
+        if ($this->isPsychologicalTest($application)) {
+            // For psychological tests, don't calculate automatic score
+            // Return null to indicate manual scoring is required
+            return null;
+        }
+        
+        // For technical/other tests, calculate score normally
+        $userAnswers = $application->userAnswers()->with('choice')->get();
+        if ($userAnswers->isEmpty()) {
+            return 0;
+        }
+        
+        $correctAnswers = $userAnswers->filter(function($answer) {
+            return $answer->choice && $answer->choice?->is_correct ?? false;
+        })->count();
+        
+        $totalAnswers = $userAnswers->count();
+        return round(($correctAnswers / $totalAnswers) * 100, 2);
+    }
+
+    /**
      * Get all user data for CV generation (same as CVGeneratorController)
      */
     private function getUserDataForCV($user)
@@ -2426,5 +2613,308 @@ class ApplicationStageController extends Controller
             'languages' => $user->candidatesLanguages,
             'socialMedia' => $user->candidatesSocialMedia,
         ];
+    }
+
+    /**
+     * Export psychological test answers for manual correction
+     */
+    public function exportPsychologicalTestAnswers(Request $request, $id)
+    {
+        try {
+            $format = $request->input('format', 'pdf');
+            
+            // Load application with all necessary relationships
+            $application = Application::with([
+                'user.candidatesProfile',
+                'vacancyPeriod.vacancy.company',
+                'vacancyPeriod.period',
+                'userAnswers.question.choices',
+                'userAnswers.choice',
+                'history' => function ($query) {
+                    $query->whereHas('status', function ($q) {
+                        $q->where('code', 'psychotest');
+                    })->with(['reviewer'])->orderBy('processed_at', 'desc');
+                }
+            ])->findOrFail($id);
+
+            if ($format === 'pdf') {
+                return $this->exportPsychologicalTestToPdf($application);
+            } elseif ($format === 'excel') {
+                return $this->exportPsychologicalTestToExcel($application);
+            }
+
+            throw new \Exception('Invalid export format');
+
+        } catch (\Exception $e) {
+            Log::error('Export error: ' . $e->getMessage(), [
+                'id' => $id,
+                'format' => $request->input('format'),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'error' => 'Export failed: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Export psychological test answers to PDF format
+     */
+    private function exportPsychologicalTestToPdf($application)
+    {
+        Log::info('PDF export started', ['application_id' => $application->id]);
+
+        // Get current psychological test history with reviewer information
+        $currentHistory = $application->history()
+            ->whereHas('status', function($q) {
+                $q->where('code', 'psychotest');
+            })
+            ->with(['reviewer'])
+            ->orderBy('processed_at', 'desc')
+            ->first();
+
+        Log::info('History loaded', [
+            'has_history' => !is_null($currentHistory),
+            'reviewer_name' => $currentHistory?->reviewer?->name
+        ]);
+
+        $data = [
+            'application' => $application,
+            'candidate' => [
+                'name' => $application->user->name,
+                'email' => $application->user->email,
+                'phone' => $application->user->candidatesProfile?->phone_number,
+                'position' => $application->vacancyPeriod->vacancy->title,
+                'company' => $application->vacancyPeriod->vacancy->company->name,
+                'period' => $application->vacancyPeriod->period->name,
+            ],
+            'answers' => $application->userAnswers->map(function($answer, $index) {
+                return [
+                    'number' => $index + 1,
+                    'question' => $answer->question->question_text,
+                    'selected_answer' => $answer->choice?->choice_text ?? 'No answer selected',
+                    'all_choices' => $answer->question->choices->map(function($choice, $choiceIndex) {
+                        return chr(65 + $choiceIndex) . '. ' . $choice->choice_text;
+                    })->implode("\n"),
+                ];
+            }),
+            'test_date' => $application->history->first()?->processed_at,
+            'export_date' => now(),
+            'psychological_history' => $currentHistory,
+            'manual_score' => $currentHistory?->score,
+            'reviewer_name' => $currentHistory?->reviewer?->name,
+            'review_date' => $currentHistory?->reviewed_at,
+            'review_notes' => $currentHistory?->notes,
+            'status' => $currentHistory?->completed_at ? 'Completed' : 'In Progress',
+        ];
+
+        Log::info('Data prepared for PDF', [
+            'answers_count' => $data['answers']->count(),
+            'has_manual_score' => !is_null($data['manual_score']),
+            'candidate_name' => $data['candidate']['name']
+        ]);
+
+        try {
+            Log::info('Loading PDF view');
+            $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('exports.psychological-test-answers', $data);
+            $pdf->setPaper('A4', 'portrait');
+
+            $filename = 'Psychological_Test_Answers_' . 
+                       str_replace(' ', '_', $application->user->name) . '_' . 
+                       date('Y-m-d_H-i-s') . '.pdf';
+
+            Log::info('PDF generated successfully', ['filename' => $filename]);
+
+            return $pdf->download($filename);
+        } catch (\Exception $e) {
+            Log::error('PDF generation failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Export psychological test answers to Excel format
+     */
+    private function exportPsychologicalTestToExcel($application)
+    {
+        // Get current psychological test history with reviewer information
+        $currentHistory = $application->history()
+            ->whereHas('status', function($q) {
+                $q->where('code', 'psychotest');
+            })
+            ->with(['reviewer'])
+            ->orderBy('processed_at', 'desc')
+            ->first();
+
+        $filename = 'Psychological_Test_Answers_' . 
+                   str_replace(' ', '_', $application->user->name) . '_' . 
+                   date('Y-m-d_H-i-s') . '.csv';
+
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ];
+
+        $callback = function() use ($application, $currentHistory) {
+            $file = fopen('php://output', 'w');
+            
+            // Add BOM for UTF-8
+            fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
+            
+            // Header information
+            fputcsv($file, ['LEMBAR JAWABAN TEST PSIKOLOGI']);
+            fputcsv($file, ['']);
+            fputcsv($file, ['Nama Kandidat', $application->user->name]);
+            fputcsv($file, ['Email', $application->user->email]);
+            fputcsv($file, ['No. Telepon', $application->user->candidatesProfile?->phone_number ?? '-']);
+            fputcsv($file, ['Posisi yang Dilamar', $application->vacancyPeriod->vacancy->title]);
+            fputcsv($file, ['Perusahaan', $application->vacancyPeriod->vacancy->company->name]);
+            fputcsv($file, ['Periode', $application->vacancyPeriod->period->name]);
+            fputcsv($file, ['Tanggal Test', $application->history->first()?->processed_at?->format('d-m-Y H:i:s') ?? '-']);
+            fputcsv($file, ['Tanggal Export', now()->format('d-m-Y H:i:s')]);
+            fputcsv($file, ['']);
+            
+            // Current scoring information if available
+            if ($currentHistory) {
+                fputcsv($file, ['=== INFORMASI PENILAIAN ===']);
+                fputcsv($file, ['Status Penilaian', $currentHistory->completed_at ? 'Selesai' : 'Dalam Proses']);
+                fputcsv($file, ['Skor Manual', $currentHistory->score ?? 'Belum dinilai']);
+                fputcsv($file, ['Reviewer', $currentHistory->reviewer?->name ?? 'Belum ada reviewer']);
+                fputcsv($file, ['Tanggal Review', $currentHistory->reviewed_at?->format('d-m-Y H:i:s') ?? 'Belum direview']);
+                fputcsv($file, ['Catatan Reviewer', $currentHistory->notes ?? 'Tidak ada catatan']);
+                fputcsv($file, ['']);
+            }
+            
+            fputcsv($file, ['']);
+            
+            // Table headers
+            fputcsv($file, ['No.', 'Pertanyaan', 'Jawaban Terpilih', 'Semua Pilihan Jawaban', 'Nilai Manual', 'Keterangan']);
+            
+            // Answers data
+            foreach ($application->userAnswers as $index => $answer) {
+                $allChoices = $answer->question->choices->map(function($choice, $choiceIndex) {
+                    return chr(65 + $choiceIndex) . '. ' . $choice->choice_text;
+                })->implode(' | ');
+                
+                fputcsv($file, [
+                    $index + 1,
+                    $answer->question->question_text,
+                    $answer->choice?->choice_text ?? 'No answer selected',
+                    $allChoices,
+                    '', // Empty for manual scoring per question
+                    '', // Empty for notes per question
+                ]);
+            }
+            
+            fputcsv($file, ['']);
+            fputcsv($file, ['']);
+            fputcsv($file, ['=== PENILAIAN AKHIR ===']);
+            fputcsv($file, ['Total Skor Manual', $currentHistory?->score ?? '']);
+            fputcsv($file, ['Status Akhir', '', '', '', '', '']); // LULUS/TIDAK LULUS
+            fputcsv($file, ['Catatan Evaluator', $currentHistory?->notes ?? '']);
+            fputcsv($file, ['Tanggal Evaluasi', $currentHistory?->reviewed_at?->format('d-m-Y H:i:s') ?? '']);
+            fputcsv($file, ['Nama Evaluator', $currentHistory?->reviewer?->name ?? '']);
+            
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    /**
+     * Update psychological test score manually by admin
+     */
+    public function updatePsychologicalTestScore(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'status' => 'required|in:passed,rejected',
+            'notes' => 'nullable|string|max:1000',
+            'manual_score' => 'required|numeric|min:0|max:100',
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            // Ensure we have a valid reviewer
+            $reviewerId = Auth::id();
+            if (!$reviewerId) {
+                throw new \Exception('Valid reviewer authentication required');
+            }
+
+            $application = Application::with(['history.status', 'history.reviewer'])->findOrFail($id);
+
+            // Get current psychological test history
+            $currentHistory = $application->history()
+                ->whereHas('status', function($q) {
+                    $q->where('code', 'psychotest')
+                      ->where('stage', 'psychological_test');
+                })
+                ->where('is_active', true)
+                ->first();
+
+            if (!$currentHistory) {
+                throw new \Exception('No active psychological test history found');
+            }
+
+            // Update current history with manual score and reviewer information
+            $currentHistory->update([
+                'score' => $validated['manual_score'],
+                'notes' => $validated['notes'],
+                'completed_at' => now(),
+                'reviewed_by' => $reviewerId,
+                'reviewed_at' => now(),
+                'is_active' => false, // Deactivate current history
+            ]);
+
+            if ($validated['status'] === 'passed') {
+                // Move to next stage (interview)
+                $interviewStatus = Status::where('code', 'interview')->first();
+                if ($interviewStatus) {
+                    // Create new interview history
+                    $application->history()->create([
+                        'status_id' => $interviewStatus->id,
+                        'processed_at' => now(),
+                        'is_active' => true,
+                        'notes' => 'Moved to interview stage after passing psychological test with score: ' . $validated['manual_score'],
+                    ]);
+
+                    // Update application status
+                    $application->update(['status_id' => $interviewStatus->id]);
+                }
+
+                DB::commit();
+                return back()->with('success', "Psychological test scored ({$validated['manual_score']}/100) and candidate moved to interview stage");
+
+            } else {
+                // Reject candidate
+                $rejectedStatus = Status::where('code', 'rejected')->first();
+                if ($rejectedStatus) {
+                    // Create rejection history
+                    $application->history()->create([
+                        'status_id' => $rejectedStatus->id,
+                        'processed_at' => now(),
+                        'completed_at' => now(),
+                        'is_active' => true,
+                        'notes' => 'Rejected at psychological test stage with score: ' . $validated['manual_score'] . '. Reason: ' . ($validated['notes'] ?? 'Score below threshold'),
+                        'reviewed_by' => $reviewerId,
+                        'reviewed_at' => now(),
+                    ]);
+
+                    $application->update(['status_id' => $rejectedStatus->id]);
+                }
+
+                DB::commit();
+                return back()->with('success', "Candidate rejected at psychological test stage with score: {$validated['manual_score']}/100");
+            }
+
+        } catch (\Exception $e) {
+            DB::rollback();
+            Log::error('Update psychological test score failed: ' . $e->getMessage());
+            return back()->withErrors(['error' => 'Failed to update psychological test score: ' . $e->getMessage()]);
+        }
     }
 }

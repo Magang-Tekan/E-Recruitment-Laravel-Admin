@@ -36,7 +36,7 @@ class QuestionPackSeeder extends Seeder
                 'status' => 'active'
             ],
             [
-                'pack_name' => 'Technical Assessment',
+                'pack_name' => 'Technical Assessment - IT',
                 'description' => 'Technical assessment for IT positions',
                 'test_type' => 'technical',
                 'duration' => 45,
@@ -53,18 +53,40 @@ class QuestionPackSeeder extends Seeder
                 'opens_at' => now()->addDays(3),
                 'closes_at' => now()->addDays(60),
                 'user_id' => $user->id,
-                'status' => 'draft'
-            ]
+                'status' => 'active'
+            ],
+            [
+                'pack_name' => 'Psychological Test - Basic',
+                'description' => 'Basic psychological assessment for personality and cognitive evaluation',
+                'test_type' => 'psychological',
+                'duration' => 90,
+                'opens_at' => now()->addDays(1),
+                'closes_at' => now()->addDays(90),
+                'user_id' => $user->id,
+                'status' => 'active'
+            ],
+            [
+                'pack_name' => 'Psychological Test - Advanced',
+                'description' => 'Advanced psychological assessment for senior positions',
+                'test_type' => 'psychology',
+                'duration' => 120,
+                'opens_at' => now()->addDays(1),
+                'closes_at' => now()->addDays(120),
+                'user_id' => $user->id,
+                'status' => 'active'
+            ],
         ];
 
         foreach ($questionPacks as $packData) {
             $pack = QuestionPack::create($packData);
             
             // Attach some random questions to each pack
-            $questions = Question::inRandomOrder()->take(rand(3, 5))->get();
+            $questions = Question::inRandomOrder()->take(rand(5, 8))->get();
             foreach ($questions as $question) {
                 $pack->questions()->attach($question->id);
             }
         }
+
+        $this->command->info('Question packs seeded successfully with psychological test types.');
     }
 }

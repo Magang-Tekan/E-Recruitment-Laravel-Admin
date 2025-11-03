@@ -25,24 +25,26 @@ class DatabaseSeeder extends Seeder
             ContactSeeder::class,
             ContactMessageSeeder::class,
             
+            // 3. Status Data (Required for Applications)
+            StatusSeeder::class,
             
-            // 3. Question System (QuestionPack depends on Question)
+            // 4. Question System (QuestionPack depends on Question)
             QuestionSeeder::class,
             QuestionPackSeeder::class,
             
-            // 4. Vacancy System (Depends on: Company, Department, MasterMajor, VacancyType, User, QuestionPack)
+            // 5. Vacancy System (Depends on: Company, Department, MasterMajor, VacancyType, User, QuestionPack)
             VacanciesSeeder::class,
             
-            // 5. Period System (Depends on: Vacancies)
+            // 6. Period System (Depends on: Vacancies)
             PeriodSeeder::class,
             
-            // 6. Vacancy Periods (Depends on: Vacancies, Period)
+            // 7. Vacancy Periods (Depends on: Vacancies, Period)
             VacancyPeriodsSeeder::class,
             
-            // 7. Company Information (Depends on: Company)
+            // 8. Company Information (Depends on: Company)
             AboutUsSeeder::class,
             
-            // 8. Candidate Data (Depends on: User with role CANDIDATE)
+            // 9. Candidate Data (Depends on: User with role CANDIDATE)
             CandidatesProfileSeeder::class,
             CandidatesEducationSeeder::class,
             CandidatesWorkExperienceSeeder::class,
@@ -55,9 +57,11 @@ class DatabaseSeeder extends Seeder
             CandidatesAchievementSeeder::class,
             CandidatesCVSeeder::class,
             
-            // 9. User Test Answers (Depends on: User, Question)
-            // UserAnswerSeeder::class,
+            // 10. Application Flow (Depends on: User, VacancyPeriods, Status)
+            ApplicationSeeder::class,
             
+            // 11. App Settings
+            AppSettingsSeeder::class,
         ]);
     }
 }

@@ -26,9 +26,14 @@ interface TestStatus {
 
 interface History {
     status: string;
+    status_code: string;
     date: string;
+    completed_date?: string;
     score?: number;
     notes?: string;
+    reviewer?: string;
+    is_completed: boolean;
+    is_active: boolean;
 }
 
 type PageProps = InertiaPageProps & {
@@ -229,44 +234,109 @@ export default function ApplicationStatus() {
                         </Card>
                     )}
 
-                    {/* Application History */}
+                    {/* Application History - Timeline */}
                     <Card>
                         <CardHeader>
-                            <CardTitle>Application History</CardTitle>
+                            <CardTitle>Application Journey</CardTitle>
                             <CardDescription>
-                                Timeline of your application progress
+                                Complete timeline of your application progress - All stages are preserved and displayed
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
                             <div className="space-y-4">
                                 {history.map((item, index) => (
-                                    <div key={index} className="flex items-start gap-4 p-4 border border-slate-200 rounded-lg">
+                                    <div key={index} className={`relative flex items-start gap-4 p-4 border rounded-lg transition-all ${
+                                        item.is_active 
+                                            ? 'border-blue-200 bg-blue-50' 
+                                            : item.is_completed 
+                                                ? 'border-green-200 bg-green-50' 
+                                                : 'border-slate-200 bg-slate-50'
+                                    }`}>
+                                        {/* Timeline connector */}
+                                        {index < history.length - 1 && (
+                                            <div className="absolute left-6 top-12 w-0.5 h-8 bg-slate-300"></div>
+                                        )}
+                                        
                                         <div className="flex-shrink-0">
-                                            {getStatusIcon(item.status)}
+                                            {item.is_completed ? (
+                                                <CheckCircle className="h-6 w-6 text-green-500" />
+                                            ) : item.is_active ? (
+                                                <Clock className="h-6 w-6 text-blue-500" />
+                                            ) : (
+                                                getStatusIcon(item.status)
+                                            )}
                                         </div>
+                                        
                                         <div className="flex-grow">
-                                            <div className="flex items-center justify-between">
-                                                <h4 className="font-medium text-slate-900">{item.status}</h4>
+                                            <div className="flex items-center justify-between mb-2">
+                                                <div className="flex items-center gap-3">
+                                                    <h4 className="font-semibold text-slate-900">{item.status}</h4>
+                                                    {item.is_active && (
+                                                        <Badge className="bg-blue-100 text-blue-800 text-xs">
+                                                            Current Stage
+                                                        </Badge>
+                                                    )}
+                                                    {item.is_completed && (
+                                                        <Badge className="bg-green-100 text-green-800 text-xs">
+                                                            Completed
+                                                        </Badge>
+                                                    )}
+                                                </div>
                                                 <span className="text-sm text-slate-500">
                                                     {formatDate(item.date)}
                                                 </span>
                                             </div>
-                                            {item.score !== undefined && (
-                                                <p className="text-sm text-slate-600 mt-1">
-                                                    Score: {item.score}
-                                                </p>
-                                            )}
-                                            {item.notes && (
-                                                <p className="text-sm text-slate-600 mt-1">
-                                                    {item.notes}
-                                                </p>
+                                            
+                                            {/* Stage Details */}
+                                            <div className="space-y-2">
+                                                {item.completed_date && item.completed_date !== item.date && (
+                                                    <p className="text-sm text-slate-600">
+                                                        <strong>Completed:</strong> {formatDate(item.completed_date)}
+                                                    </p>
+                                                )}
+                                                
+                                                {item.score !== undefined && item.score !== null && (
+                                                    <p className="text-sm text-slate-600">
+                                                        <strong>Score:</strong> 
+                                                        <span className="font-mono ml-2 px-2 py-1 bg-slate-100 rounded">
+                                                            {item.score}
+                                                        </span>
+                                                    </p>
+                                                )}
+                                                
+                                                {item.reviewer && (
+                                                    <p className="text-sm text-slate-600">
+                                                        <strong>Reviewed by:</strong> {item.reviewer}
+                                                    </p>
+                                                )}
+                                                
+                                                {item.notes && (
+                                                    <p className="text-sm text-slate-600 bg-white p-2 rounded border">
+                                                        <strong>Notes:</strong> {item.notes}
+                                                    </p>
+                                                )}
+                                            </div>
+                                            
+                                            {/* Stage Status Message */}
+                                            {item.is_active && (
+                                                <div className="mt-3 p-3 bg-blue-100 border border-blue-200 rounded">
+                                                    <p className="text-sm text-blue-800">
+                                                        <strong>This is your current stage.</strong> 
+                                                        {item.status_code === 'psychotest' && ' You may need to complete a psychological test.'}
+                                                        {item.status_code === 'interview' && ' Please wait for interview scheduling.'}
+                                                        {item.status_code === 'admin_selection' && ' Your application is under review.'}
+                                                    </p>
+                                                </div>
                                             )}
                                         </div>
                                     </div>
                                 ))}
+                                
                                 {history.length === 0 && (
                                     <div className="text-center py-8 text-slate-500">
-                                        No history available yet.
+                                        <AlertCircle className="h-12 w-12 mx-auto mb-3 text-slate-400" />
+                                        <p>No application history available yet.</p>
+                                        <p className="text-sm">Your application journey will appear here as it progresses.</p>
                                     </div>
                                 )}
                             </div>

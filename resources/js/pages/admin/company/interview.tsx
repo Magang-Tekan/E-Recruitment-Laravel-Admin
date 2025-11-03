@@ -3,7 +3,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem, type ApplicationInfo } from '@/types';
 import { Button } from '@/components/ui/button';
-import { Eye } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Eye, CheckCircle, Clock, XCircle } from 'lucide-react';
 import { format, formatDistanceStrict } from 'date-fns';
 import { Pagination } from '@/components/ui/pagination';
 
@@ -47,6 +48,34 @@ export default function Interview({ candidates, filters, companyInfo, periodInfo
             preserveState: true,
             preserveScroll: true,
         });
+    };
+
+    const getReviewStatus = (candidate: ApplicationInfo) => {
+        // Find specific interview history entry
+        const interviewHistory = candidate.history?.find(h => 
+            h.stage === 'interview' || h.status_code === 'interview'
+        );
+        
+        // Check if interview is completed (has score OR completed_at)
+        const hasScore = (
+            (interviewHistory?.score !== null && interviewHistory?.score !== undefined) ||
+            (candidate.stages?.interview?.score !== null && candidate.stages?.interview?.score !== undefined)
+        );
+        const isCompleted = interviewHistory?.completed_at || candidate.stages?.interview?.completed_at;
+        const hasReviewer = interviewHistory?.reviewer_name !== null && interviewHistory?.reviewer_name !== undefined;
+        
+        // Logic:
+        // 1. If has score OR completed -> Reviewed
+        // 2. If scheduled but not completed -> Pending Review
+        // 3. If no schedule -> Not Started
+        
+        if (hasScore || (isCompleted && hasReviewer)) {
+            return { status: 'reviewed', icon: CheckCircle, color: 'bg-green-100 text-green-800 border-green-200' };
+        } else if (interviewHistory?.processed_at || candidate.stages?.interview?.scheduled_at) {
+            return { status: 'pending', icon: Clock, color: 'bg-yellow-100 text-yellow-800 border-yellow-200' };
+        } else {
+            return { status: 'not_started', icon: XCircle, color: 'bg-gray-100 text-gray-800 border-gray-200' };
+        }
     };
 
     return (
@@ -122,6 +151,74 @@ export default function Interview({ candidates, filters, companyInfo, periodInfo
                             Total: {candidates.total} candidates
                         </div>
                     </div>
+
+                    {/* Summary Cards */}
+                    <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-4">
+                        {(() => {
+                            const reviewed = candidates.data.filter(c => {
+                                const status = getReviewStatus(c);
+                                return status.status === 'reviewed';
+                            }).length;
+                            const pending = candidates.data.filter(c => {
+                                const status = getReviewStatus(c);
+                                return status.status === 'pending';
+                            }).length;
+                            const notStarted = candidates.data.filter(c => {
+                                const status = getReviewStatus(c);
+                                return status.status === 'not_started';
+                            }).length;
+
+                            return (
+                                <>
+                                    <Card>
+                                        <CardContent className="p-4">
+                                            <div className="flex items-center space-x-2">
+                                                <CheckCircle className="h-5 w-5 text-green-600" />
+                                                <div>
+                                                    <p className="text-sm font-medium text-muted-foreground">Reviewed</p>
+                                                    <p className="text-2xl font-bold text-green-600">{reviewed}</p>
+                                                </div>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                    <Card>
+                                        <CardContent className="p-4">
+                                            <div className="flex items-center space-x-2">
+                                                <Clock className="h-5 w-5 text-yellow-600" />
+                                                <div>
+                                                    <p className="text-sm font-medium text-muted-foreground">Pending Review</p>
+                                                    <p className="text-2xl font-bold text-yellow-600">{pending}</p>
+                                                </div>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                    <Card>
+                                        <CardContent className="p-4">
+                                            <div className="flex items-center space-x-2">
+                                                <XCircle className="h-5 w-5 text-gray-600" />
+                                                <div>
+                                                    <p className="text-sm font-medium text-muted-foreground">Not Started</p>
+                                                    <p className="text-2xl font-bold text-gray-600">{notStarted}</p>
+                                                </div>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                    <Card>
+                                        <CardContent className="p-4">
+                                            <div className="flex items-center space-x-2">
+                                                <Eye className="h-5 w-5 text-blue-600" />
+                                                <div>
+                                                    <p className="text-sm font-medium text-muted-foreground">Total</p>
+                                                    <p className="text-2xl font-bold text-blue-600">{candidates.total}</p>
+                                                </div>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                </>
+                            );
+                        })()}
+                    </div>
+
                     <Card>
                         <CardHeader>
                             <CardTitle>Candidates List</CardTitle>
@@ -138,9 +235,8 @@ export default function Interview({ candidates, filters, companyInfo, periodInfo
                                             <th className="p-4 font-medium">Position</th>
                                             <th className="p-4 font-medium">Scheduled At</th>
                                             <th className="p-4 font-medium">Completed At</th>
-                                            <th className="p-4 font-medium">Duration</th>
-                                            <th className="p-4 font-medium">Interviewer</th>
                                             <th className="p-4 font-medium">Score</th>
+                                            <th className="p-4 font-medium">Review Status</th>
                                             <th className="p-4 font-medium">Action</th>
                                         </tr>
                                     </thead>
@@ -149,14 +245,13 @@ export default function Interview({ candidates, filters, companyInfo, periodInfo
                                             candidates.data.map((candidate, index) => {
                                                 const scheduledAt = candidate.stages?.interview?.scheduled_at;
                                                 const completedAt = candidate.stages?.interview?.completed_at;
-                                                const duration = scheduledAt && completedAt ? 
-                                                    formatDistanceStrict(new Date(completedAt), new Date(scheduledAt)) : 
-                                                    '-';
+                                                const reviewStatus = getReviewStatus(candidate);
+                                                const StatusIcon = reviewStatus.icon;
                                                 
                                                 return (
-                                                    <tr key={candidate.id} className="border-b">
+                                                    <tr key={candidate.id} className="border-b hover:bg-muted/50">
                                                         <td className="p-4">{(candidates.current_page - 1) * candidates.per_page + index + 1}</td>
-                                                        <td className="p-4">{candidate.user.name}</td>
+                                                        <td className="p-4 font-medium">{candidate.user.name}</td>
                                                         <td className="p-4">{candidate.user.email}</td>
                                                         <td className="p-4">{candidate.vacancy_period.vacancy.title}</td>
                                                         <td className="p-4">
@@ -165,11 +260,20 @@ export default function Interview({ candidates, filters, companyInfo, periodInfo
                                                         <td className="p-4">
                                                             {completedAt ? format(new Date(completedAt), 'dd MMM yyyy HH:mm') : '-'}
                                                         </td>
-                                                        <td className="p-4">{duration}</td>
-                                                        <td className="p-4">
-                                                            {candidate.stages?.interview?.interviewer?.name || '-'}
+                                                        <td className="p-4 font-medium">
+                                                            {candidate.stages?.interview?.score ? (
+                                                                <span className="text-green-700">
+                                                                    {Number(candidate.stages.interview.score).toFixed(2)}
+                                                                </span>
+                                                            ) : '-'}
                                                         </td>
-                                                        <td className="p-4">{candidate.stages?.interview?.score || '-'}</td>
+                                                        <td className="p-4">
+                                                            <Badge variant="outline" className={reviewStatus.color}>
+                                                                <StatusIcon className="mr-1 h-3 w-3" />
+                                                                {reviewStatus.status === 'reviewed' ? 'Reviewed' : 
+                                                                 reviewStatus.status === 'pending' ? 'Pending Review' : 'Not Started'}
+                                                            </Badge>
+                                                        </td>
                                                         <td className="p-4">
                                                             <Button
                                                                 variant="outline"
@@ -186,7 +290,7 @@ export default function Interview({ candidates, filters, companyInfo, periodInfo
                                             })
                                         ) : (
                                             <tr>
-                                                <td colSpan={10} className="p-4 text-center text-muted-foreground">
+                                                <td colSpan={9} className="p-4 text-center text-muted-foreground">
                                                     No candidates found in interview stage
                                                 </td>
                                             </tr>

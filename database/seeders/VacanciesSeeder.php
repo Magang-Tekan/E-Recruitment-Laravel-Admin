@@ -320,7 +320,17 @@ class VacanciesSeeder extends Seeder
             $major = $majors->where('name', $vacancyData['major'])->first();
             $vacancyType = $vacancyTypes->where('name', $vacancyData['vacancy_type'])->first();
             $company = $companies->random();
-            $questionPack = $questionPacks->random();
+            
+            // Assign specific question pack based on job title
+            if ($vacancyData['title'] === 'Software Engineer') {
+                // Software Engineer gets psychological test question pack
+                $questionPack = $questionPacks->where('test_type', 'psychological')->first() 
+                    ?? $questionPacks->where('test_type', 'psychology')->first()
+                    ?? $questionPacks->random();
+            } else {
+                // Other positions get random question pack
+                $questionPack = $questionPacks->random();
+            }
 
             // Get education level if specified, otherwise random
             $educationLevel = null;
@@ -336,6 +346,30 @@ class VacanciesSeeder extends Seeder
             if (!$major) $major = $majors->random();
             if (!$vacancyType) $vacancyType = $vacancyTypes->random();
 
+            // Set psychotest_name based on question pack test_type and job title
+            $psychotestName = 'General Assessment';
+            if ($vacancyData['title'] === 'Software Engineer') {
+                $psychotestName = 'Psychological Test';
+            } elseif ($questionPack && $questionPack->test_type) {
+                switch (strtolower($questionPack->test_type)) {
+                    case 'psychological':
+                    case 'psychology':
+                    case 'psikologi':
+                        $psychotestName = 'Tes Psikologi';
+                        break;
+                    case 'technical':
+                        $psychotestName = 'Tes Teknis';
+                        break;
+                    case 'leadership':
+                        $psychotestName = 'Tes Kepemimpinan';
+                        break;
+                    case 'general':
+                    default:
+                        $psychotestName = 'Tes Umum';
+                        break;
+                }
+            }
+
             Vacancies::create([
                 'title' => $vacancyData['title'],
                 'department_id' => $department->id,
@@ -349,6 +383,7 @@ class VacanciesSeeder extends Seeder
                 'company_id' => $company->id,
                 'question_pack_id' => $questionPack->id,
                 'education_level_id' => $educationLevel->id,
+                'psychotest_name' => $psychotestName,
             ]);
         }
 
