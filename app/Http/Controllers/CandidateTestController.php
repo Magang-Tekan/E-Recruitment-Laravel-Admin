@@ -214,8 +214,10 @@ class CandidateTestController extends Controller
             
             $application = Application::with([
                 'vacancy.company',
+                'status',
                 'history' => function($query) {
-                    $query->with('status')->orderBy('created_at', 'desc');
+                    $query->with(['status', 'reviewer'])
+                          ->orderBy('processed_at', 'asc'); // Show chronological order
                 }
             ])->where('user_id', $user->id)
               ->findOrFail($applicationId);
@@ -237,9 +239,14 @@ class CandidateTestController extends Controller
                 'history' => $application->history->map(function ($history) {
                     return [
                         'status' => $history->status->name ?? 'Unknown',
+                        'status_code' => $history->status->code ?? 'unknown',
                         'date' => $history->processed_at,
+                        'completed_date' => $history->completed_at,
                         'score' => $history->score,
-                        'notes' => $history->notes
+                        'notes' => $history->notes,
+                        'reviewer' => $history->reviewer?->name,
+                        'is_completed' => (bool) $history->completed_at,
+                        'is_active' => (bool) $history->is_active,
                     ];
                 })
             ]);

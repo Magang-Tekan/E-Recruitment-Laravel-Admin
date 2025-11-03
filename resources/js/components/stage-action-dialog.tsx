@@ -94,7 +94,7 @@ export default function StageActionDialog({ isOpen, onClose, applicationId, stag
         }
 
         // Validate Zoom URL and schedule for assessment stage passing to interview
-        if (stage === 'psychological_test' && action === 'accept') {
+        if ((stage === 'psychological_test' || stage === 'assessment') && action === 'accept') {
             if (!zoomUrl) {
                 setError('Zoom URL is required for interview scheduling');
                 return;
@@ -127,13 +127,24 @@ export default function StageActionDialog({ isOpen, onClose, applicationId, stag
             });
         } else {
             // For other stages, use the regular stage action endpoint
-            router.post(`/dashboard/recruitment/applications/${applicationId}/${stage}`, {
+            const url = `/dashboard/recruitment/applications/${applicationId}/${stage}`;
+            const data = {
                 status: action === 'accept' ? 'passed' : 'rejected',
                 score: (action === 'accept' && (stage === 'administration' || stage === 'interview')) ? parseInt(score) : null,
                 notes: notes || null,
-                zoom_url: stage === 'psychological_test' && action === 'accept' ? zoomUrl : null,
-                scheduled_at: stage === 'psychological_test' && action === 'accept' ? scheduledAt : null,
-            }, {
+                zoom_url: (stage === 'psychological_test' || stage === 'assessment') && action === 'accept' ? zoomUrl : null,
+                scheduled_at: (stage === 'psychological_test' || stage === 'assessment') && action === 'accept' ? scheduledAt : null,
+            };
+            
+            console.log('🔍 StageActionDialog Debug:', {
+                url,
+                data,
+                stage,
+                action,
+                applicationId
+            });
+            
+            router.post(url, data, {
                 preserveState: false,
                 preserveScroll: false,
                 onSuccess: () => {
@@ -142,8 +153,15 @@ export default function StageActionDialog({ isOpen, onClose, applicationId, stag
                 },
                 onError: (errors) => {
                     setIsSubmitting(false);
+                    console.error('🔴 Stage action error:', {
+                        errors,
+                        stage,
+                        action,
+                        applicationId,
+                        url,
+                        data
+                    });
                     setError('Failed to process the application. Please try again.');
-                    console.error('Stage action error:', errors);
                 }
             });
         }
@@ -158,7 +176,7 @@ export default function StageActionDialog({ isOpen, onClose, applicationId, stag
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                     {/* Interview Schedule Fields */}
-                    {stage === 'psychological_test' && action === 'accept' && (
+                    {(stage === 'psychological_test' || stage === 'assessment') && action === 'accept' && (
                         <>
                             <div className="grid gap-2">
                                 <Label htmlFor="zoom_url">Zoom Meeting URL (Required)</Label>

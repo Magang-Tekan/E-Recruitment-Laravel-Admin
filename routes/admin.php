@@ -42,6 +42,12 @@ Route::middleware(['auth', 'verified', 'role:' . UserRole::HR->value])
                 Route::get('/', [ApplicationStageController::class, 'assessment'])->name('index');
                 Route::get('/{id}', [ApplicationStageController::class, 'assessmentDetail'])->name('detail');
                 Route::post('/{application}/update', [ApplicationStageController::class, 'update'])->name('update');
+                
+                // Psychological Test Export and Manual Scoring
+                Route::get('/{id}/export-psychological-test', [ApplicationStageController::class, 'exportPsychologicalTestAnswers'])
+                    ->name('export-psychological-test');
+                Route::post('/{id}/update-psychological-score', [ApplicationStageController::class, 'updatePsychologicalTestScore'])
+                    ->name('update-psychological-score');
             });
 
             // Interview Stage

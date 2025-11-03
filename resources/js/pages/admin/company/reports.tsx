@@ -6,7 +6,7 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import { format } from 'date-fns';
-import { ArrowUpDown, Eye, ThumbsDown, ThumbsUp } from 'lucide-react';
+import { ArrowUpDown, Eye, ThumbsDown, ThumbsUp, CheckCircle, Clock, XCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useState } from 'react';
 
@@ -196,6 +196,65 @@ export default function Reports({ candidates, filters, companyInfo, periodInfo }
                         <h2 className="text-2xl font-semibold">Recruitment Reports</h2>
                         <div className="text-muted-foreground text-sm">Total: {candidates.total} candidates</div>
                     </div>
+
+                    {/* Summary Cards */}
+                    <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-4">
+                        {(() => {
+                            const accepted = candidates.data.data.filter(c => c.final_decision?.status === 'accepted').length;
+                            const rejected = candidates.data.data.filter(c => c.final_decision?.status === 'rejected').length;
+                            const pending = candidates.data.data.filter(c => c.final_decision?.status === 'pending').length;
+
+                            return (
+                                <>
+                                    <Card>
+                                        <CardContent className="p-4">
+                                            <div className="flex items-center space-x-2">
+                                                <CheckCircle className="h-5 w-5 text-green-600" />
+                                                <div>
+                                                    <p className="text-sm font-medium text-muted-foreground">Accepted</p>
+                                                    <p className="text-2xl font-bold text-green-600">{accepted}</p>
+                                                </div>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                    <Card>
+                                        <CardContent className="p-4">
+                                            <div className="flex items-center space-x-2">
+                                                <XCircle className="h-5 w-5 text-red-600" />
+                                                <div>
+                                                    <p className="text-sm font-medium text-muted-foreground">Rejected</p>
+                                                    <p className="text-2xl font-bold text-red-600">{rejected}</p>
+                                                </div>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                    <Card>
+                                        <CardContent className="p-4">
+                                            <div className="flex items-center space-x-2">
+                                                <Clock className="h-5 w-5 text-yellow-600" />
+                                                <div>
+                                                    <p className="text-sm font-medium text-muted-foreground">Pending</p>
+                                                    <p className="text-2xl font-bold text-yellow-600">{pending}</p>
+                                                </div>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                    <Card>
+                                        <CardContent className="p-4">
+                                            <div className="flex items-center space-x-2">
+                                                <Eye className="h-5 w-5 text-blue-600" />
+                                                <div>
+                                                    <p className="text-sm font-medium text-muted-foreground">Total</p>
+                                                    <p className="text-2xl font-bold text-blue-600">{candidates.total}</p>
+                                                </div>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                </>
+                            );
+                        })()}
+                    </div>
+
                     <Card>
                         <CardHeader>
                             <CardTitle>Candidates Report</CardTitle>

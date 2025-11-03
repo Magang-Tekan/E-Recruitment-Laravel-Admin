@@ -260,9 +260,12 @@ class PeriodController extends Controller
         }
     }
 
-    public function show(Period $period)
+    public function show(Request $request, Period $period)
     {
-        $period->load('vacancies.company', 'vacancies.department', 'applications.user', 'applications.vacancy', 'applications.status');
+        // Get company filter from request
+        $companyId = $request->query('companyId');
+        
+        $period->load('vacancies.company', 'vacancies.department', 'applications.user', 'applications.vacancyPeriod.vacancy.company', 'applications.status');
         
         // Get current date for status checking
         $now = Carbon::now();
@@ -281,16 +284,33 @@ class PeriodController extends Controller
             }
         }
         
-        $applicantsData = $period->applications->map(function ($applicant) {
+        // Filter applications by company if specified
+        $applications = $period->applications;
+        if ($companyId) {
+            $applications = $applications->filter(function ($application) use ($companyId) {
+                return $application->vacancyPeriod && 
+                       $application->vacancyPeriod->vacancy && 
+                       $application->vacancyPeriod->vacancy->company_id == $companyId;
+            });
+        }
+        
+        $applicantsData = $applications->map(function ($applicant) {
             return [
                 'id' => $applicant->id,
                 'name' => $applicant->user->name,
                 'email' => $applicant->user->email,
-                'position' => $applicant->vacancy->title ?? 'Unknown',
+                'position' => $applicant->vacancyPeriod->vacancy->title ?? 'Unknown',
                 'status' => $applicant->status->name ?? 'Pending',
-                'applied_at' => $applicant->applied_at->format('M d, Y'),
+                'applied_at' => $applicant->created_at->format('M d, Y'),
+                'company' => $applicant->vacancyPeriod->vacancy->company->name ?? 'Unknown',
             ];
         });
+        
+        // Filter vacancies by company if specified
+        $vacancies = $period->vacancies;
+        if ($companyId) {
+            $vacancies = $vacancies->where('company_id', $companyId);
+        }
         
         return Inertia::render('admin/periods/show', [
             'period' => [
@@ -300,7 +320,7 @@ class PeriodController extends Controller
                 'start_date' => $period->start_time ? Carbon::parse($period->start_time)->format('d/m/Y') : null,
                 'end_date' => $period->end_time ? Carbon::parse($period->end_time)->format('d/m/Y') : null,
                 'status' => $status,
-                'vacancies' => $period->vacancies->map(function ($vacancy) {
+                'vacancies' => $vacancies->map(function ($vacancy) {
                     return [
                         'id' => $vacancy->id,
                         'title' => $vacancy->title,
@@ -308,9 +328,11 @@ class PeriodController extends Controller
                         'company' => $vacancy->company ? $vacancy->company->name : null,
                     ];
                 }),
-                'applicants_count' => $period->applications->count(),
+                'applicants_count' => $applications->count(),
             ],
-            'applicants' => $applicantsData
+            'applicants' => $applicantsData,
+            'companyId' => $companyId,
+            'filtering' => !empty($companyId),
         ]);
     }
 

@@ -12,8 +12,8 @@ class UserAnswerSeeder extends Seeder
 {
     public function run(): void
     {
-        // Clear existing user answers first
-        UserAnswer::truncate();
+        // Clear existing user answers first (use delete instead of truncate to avoid FK issues)
+        UserAnswer::query()->delete();
         
         // Get applications that are in assessment or interview stage
         $applications = Application::with([

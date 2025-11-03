@@ -33,8 +33,8 @@ class VacancyPeriodsSeeder extends Seeder
 
             // Create periods for all vacancies
             foreach ($vacancies as $index => $vacancy) {
-                // Special case for Software Engineer (id 1) - assign to current period (Q4 - period id 4)
-                if ($vacancy->id == 1) {
+                // Special case for Software Engineer (id 1) and Data Analyst (id 5) - assign to current period (Q4 - period id 4)
+                if ($vacancy->id == 1 || $vacancy->id == 5) {
                     $vacancyPeriods[] = [
                         'vacancy_id' => $vacancy->id,
                         'period_id' => 4, // Q4 2025 Recruitment (current period)
