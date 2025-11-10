@@ -769,6 +769,196 @@ class ApplicationStageController extends Controller
         ]);
     }
 
+    /**
+     * Export administration candidate data to PDF
+     */
+    public function exportAdministrationCandidate($id)
+    {
+        try {
+            $application = Application::with([
+                'user.candidatesProfile',
+                'user.candidatesEducations.educationLevel',
+                'user.candidatesEducations.major',
+                'user.candidatesWorkExperiences',
+                'user.candidatesSkills',
+                'user.candidatesLanguages',
+                'user.candidatesCourses',
+                'user.candidatesCertifications',
+                'user.candidatesOrganizations',
+                'user.candidatesAchievements',
+                'user.candidatesSocialMedia',
+                'user.candidatesCV',
+                'vacancyPeriod.vacancy.company',
+                'vacancyPeriod.period',
+                'status',
+                'history' => function($query) {
+                    $query->with(['status', 'reviewer'])->latest();
+                }
+            ])->findOrFail($id);
+
+            $profile = $application->user->candidatesProfile;
+            
+            // Get administration history
+            $administrationHistory = $application->history()
+                ->whereHas('status', function($q) {
+                    $q->where('code', 'administrative_selection');
+                })
+                ->with(['reviewer'])
+                ->orderBy('processed_at', 'desc')
+                ->first();
+
+            // Helper function to convert image to base64
+            $getImageBase64 = function($imagePath) {
+                if (file_exists($imagePath)) {
+                    $imageData = file_get_contents($imagePath);
+                    $imageInfo = pathinfo($imagePath);
+                    $extension = strtolower($imageInfo['extension'] ?? 'png');
+                    $mimeType = 'image/png';
+                    if ($extension === 'jpg' || $extension === 'jpeg') {
+                        $mimeType = 'image/jpeg';
+                    } elseif ($extension === 'gif') {
+                        $mimeType = 'image/gif';
+                    }
+                    return 'data:' . $mimeType . ';base64,' . base64_encode($imageData);
+                }
+                return null;
+            };
+
+            // Try different image formats and names for header
+            $headerImage = null;
+            $footerImage = null;
+            
+            $imageExtensions = ['png', 'jpg', 'jpeg', 'gif'];
+            $headerNames = ['header', 'header_mika'];
+            $footerNames = ['footer', 'footer_mika'];
+            
+            // Try to find header image
+            foreach ($headerNames as $headerName) {
+                foreach ($imageExtensions as $ext) {
+                    $headerPath = public_path("images/export/{$headerName}.{$ext}");
+                    if (!$headerImage && file_exists($headerPath)) {
+                        $headerImage = $getImageBase64($headerPath);
+                        break 2;
+                    }
+                }
+            }
+            
+            // Try to find footer image
+            foreach ($footerNames as $footerName) {
+                foreach ($imageExtensions as $ext) {
+                    $footerPath = public_path("images/export/{$footerName}.{$ext}");
+                    if (!$footerImage && file_exists($footerPath)) {
+                        $footerImage = $getImageBase64($footerPath);
+                        break 2;
+                    }
+                }
+            }
+
+            $data = [
+                'application' => $application,
+                'headerImage' => $headerImage,
+                'footerImage' => $footerImage,
+                'candidate' => [
+                    'name' => $application->user->name,
+                    'email' => $application->user->email,
+                    'full_name' => $profile?->full_name ?? $application->user->name,
+                    'phone' => $profile?->phone_number ?? '-',
+                    'address' => $profile?->address ?? '-',
+                    'birth_place' => $profile?->place_of_birth ?? '-',
+                    'birth_date' => $profile?->date_of_birth ?? '-',
+                    'gender' => $profile?->gender ?? '-',
+                    'position' => $application->vacancyPeriod->vacancy->title,
+                    'company' => $application->vacancyPeriod->vacancy->company->name,
+                    'period' => $application->vacancyPeriod->period->name,
+                    'applied_at' => $application->created_at,
+                ],
+                'profile' => $profile,
+                'education' => $application->user->candidatesEducations->map(fn($edu) => [
+                    'level' => $edu->educationLevel ? $edu->educationLevel->name : null,
+                    'institution' => $edu->institution_name,
+                    'faculty' => $edu->faculty,
+                    'major' => $edu->major ? $edu->major->name : null,
+                    'start_year' => $edu->year_in,
+                    'end_year' => $edu->year_out,
+                    'gpa' => $edu->gpa,
+                ]),
+                'work_experiences' => $application->user->candidatesWorkExperiences->map(fn($exp) => [
+                    'company' => $exp->company,
+                    'position' => $exp->position,
+                    'start_date' => $exp->start_date,
+                    'end_date' => $exp->end_date,
+                    'description' => $exp->description,
+                ]),
+                'skills' => $application->user->candidatesSkills->map(fn($skill) => [
+                    'name' => $skill->skill_name,
+                    'level' => $skill->proficiency_level,
+                ]),
+                'languages' => $application->user->candidatesLanguages->map(fn($lang) => [
+                    'name' => $lang->language_name,
+                    'proficiency' => $lang->proficiency_level,
+                ]),
+                'courses' => $application->user->candidatesCourses->map(fn($course) => [
+                    'name' => $course->name,
+                    'institution' => $course->institution,
+                    'completion_date' => $course->completion_date,
+                    'description' => $course->description,
+                ]),
+                'certifications' => $application->user->candidatesCertifications->map(fn($cert) => [
+                    'name' => $cert->name,
+                    'issuer' => $cert->issuer,
+                    'date' => $cert->date,
+                    'expiry_date' => $cert->expiry_date,
+                    'credential_id' => $cert->credential_id,
+                ]),
+                'organizations' => $application->user->candidatesOrganizations->map(fn($org) => [
+                    'name' => $org->name,
+                    'position' => $org->position,
+                    'start_year' => $org->start_year,
+                    'end_year' => $org->end_year,
+                    'description' => $org->description,
+                ]),
+                'achievements' => $application->user->candidatesAchievements->map(fn($achievement) => [
+                    'title' => $achievement->title,
+                    'issuer' => $achievement->issuer,
+                    'date' => $achievement->date,
+                    'description' => $achievement->description,
+                ]),
+                'social_media' => $application->user->candidatesSocialMedia->map(fn($social) => [
+                    'platform' => $social->platform,
+                    'url' => $social->url,
+                ]),
+                'history' => $application->history,
+                'administration_history' => $administrationHistory,
+                'export_date' => now(),
+            ];
+
+            $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('exports.administration-candidate', $data);
+            // Set margins: left 4cm, right 3cm, top 4cm, bottom 3cm
+            // Using array format for setPaper to set margins
+            $pdf->setPaper([0, 0, 595.28, 841.89], 'portrait'); // A4 size in points
+            $pdf->setOption('margin-left', '40mm');
+            $pdf->setOption('margin-right', '30mm');
+            $pdf->setOption('margin-top', '40mm'); // Increased to 4cm
+            $pdf->setOption('margin-bottom', '30mm');
+
+            $filename = 'Data_Kandidat_' . 
+                       str_replace(' ', '_', $application->user->name) . '_' . 
+                       date('Y-m-d_H-i-s') . '.pdf';
+
+            return $pdf->download($filename);
+
+        } catch (\Exception $e) {
+            Log::error('Administration export error: ' . $e->getMessage(), [
+                'id' => $id,
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'error' => 'Export failed: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
     public function assessment(Request $request): Response
     {
         // Get the assessment status
