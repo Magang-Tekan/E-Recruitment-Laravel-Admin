@@ -33,6 +33,7 @@ Route::middleware(['auth', 'verified', 'role:' . UserRole::HR->value])
             Route::prefix('administration')->name('administration.')->group(function () {
                 Route::get('/', [ApplicationStageController::class, 'administration'])->name('index');
                 Route::get('/{id}', [ApplicationStageController::class, 'administrationShow'])->name('detail');
+                Route::get('/{id}/export', [ApplicationStageController::class, 'exportAdministrationCandidate'])->name('export');
                 Route::post('/{id}/approve', [ApplicationStageController::class, 'approve'])->name('approve');
                 Route::post('/{id}/reject', [ApplicationStageController::class, 'reject'])->name('reject');
             });

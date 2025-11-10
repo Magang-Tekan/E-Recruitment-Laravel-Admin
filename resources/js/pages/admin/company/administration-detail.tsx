@@ -5,7 +5,7 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Download, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { ArrowLeft, ThumbsUp, ThumbsDown, FileText } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import StageActionDialog from '@/components/stage-action-dialog';
@@ -192,19 +192,17 @@ export default function AdministrationDetail({ candidate }: Props) {
                                      candidate.status.code === 'rejected' ? 'destructive' : 'default'}>
                             {candidate.status.name}
                         </Badge>
-                        {candidate.user.cv && (
-                            <Button 
-                                variant="outline" 
-                                size="sm" 
-                                onClick={() => {
-                                    const downloadUrl = `/dashboard/candidates/${candidate.id}/cv/download`;
-                                    window.open(downloadUrl, '_blank');
-                                }}
-                            >
-                                <Download className="mr-2 h-4 w-4" />
-                                Download CV
-                            </Button>
-                        )}
+                        <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => {
+                                const exportUrl = `/dashboard/recruitment/administration/${candidate.id}/export`;
+                                window.open(exportUrl, '_blank');
+                            }}
+                        >
+                            <FileText className="mr-2 h-4 w-4" />
+                            Download PDF
+                        </Button>
                     </div>
                 </div>
 
