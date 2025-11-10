@@ -201,7 +201,7 @@ export default function AdministrationDetail({ candidate }: Props) {
                             }}
                         >
                             <FileText className="mr-2 h-4 w-4" />
-                            Export PDF
+                            Download PDF
                         </Button>
                     </div>
                 </div>
