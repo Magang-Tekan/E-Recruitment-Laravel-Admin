@@ -824,13 +824,28 @@ class ApplicationStageController extends Controller
                 return null;
             };
 
-            // Try different image formats and names for header
+            // Determine company and select appropriate header/footer
+            $companyName = $application->vacancyPeriod->vacancy->company->name ?? '';
+            $isAutentik = stripos($companyName, 'autentik') !== false;
+            $isMitraKarya = stripos($companyName, 'mitra karya') !== false || stripos($companyName, 'mika') !== false;
+            
             $headerImage = null;
             $footerImage = null;
             
             $imageExtensions = ['png', 'jpg', 'jpeg', 'gif'];
-            $headerNames = ['header', 'header_mika'];
-            $footerNames = ['footer', 'footer_mika'];
+            
+            // Select header/footer names based on company
+            if ($isAutentik) {
+                $headerNames = ['header_autentik', 'header'];
+                $footerNames = ['footer_autentik', 'footer'];
+            } elseif ($isMitraKarya) {
+                $headerNames = ['header_mika', 'header'];
+                $footerNames = ['footer_mika', 'footer'];
+            } else {
+                // Default fallback
+                $headerNames = ['header', 'header_mika', 'header_autentik'];
+                $footerNames = ['footer', 'footer_mika', 'footer_autentik'];
+            }
             
             // Try to find header image
             foreach ($headerNames as $headerName) {
@@ -933,13 +948,13 @@ class ApplicationStageController extends Controller
             ];
 
             $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('exports.administration-candidate', $data);
-            // Set margins: left 4cm, right 3cm, top 4cm, bottom 3cm
+            // Set margins: left 20mm, right 15mm, top 20mm, bottom 20mm
             // Using array format for setPaper to set margins
             $pdf->setPaper([0, 0, 595.28, 841.89], 'portrait'); // A4 size in points
-            $pdf->setOption('margin-left', '40mm');
-            $pdf->setOption('margin-right', '30mm');
-            $pdf->setOption('margin-top', '40mm'); // Increased to 4cm
-            $pdf->setOption('margin-bottom', '30mm');
+            $pdf->setOption('margin-left', '20mm');
+            $pdf->setOption('margin-right', '15mm');
+            $pdf->setOption('margin-top', '20mm');
+            $pdf->setOption('margin-bottom', '20mm');
 
             $filename = 'Data_Kandidat_' . 
                        str_replace(' ', '_', $application->user->name) . '_' . 

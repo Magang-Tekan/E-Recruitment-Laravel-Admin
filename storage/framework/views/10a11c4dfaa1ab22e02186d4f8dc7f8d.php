@@ -6,7 +6,7 @@
     <title>Data Kandidat - <?php echo e($candidate['name']); ?></title>
     <style>
         @page {
-            margin: 40mm 30mm 30mm 40mm; /* top right bottom left - increased top margin to 4cm */
+            margin: 20mm 15mm 20mm 20mm; /* top right bottom left - reduced margins */
             size: A4 portrait;
         }
         
@@ -23,156 +23,174 @@
         }
         
         body {
-            font-family: 'DejaVu Sans', Arial, sans-serif;
+            font-family: 'Times New Roman', 'DejaVu Serif', serif !important;
             font-size: 10px;
-            line-height: 1.6;
-            color: #2c3e50;
-            padding: 0;
+            line-height: 1.4;
+            color: #000000;
+            padding-top: 10mm;
             margin: 0;
             position: relative;
             min-height: 100%;
+        }
+        
+        * {
+            font-family: 'Times New Roman', 'DejaVu Serif', serif !important;
         }
         
         .header-image {
             width: 100%;
             max-width: 100%;
             height: auto;
-            margin-bottom: 25px;
+            bottom: 20mm;
+            margin-bottom: 10mm;
+            padding:0 ; 
             display: block;
         }
         
         .header {
             text-align: center;
-            margin-bottom: 25px;
-            padding: 0; /* No padding - margin is handled by @page */
+            margin-bottom: 15px;
+            padding-bottom: 20mm;
         }
         
         
         /* CV Style - Clean and Professional */
         .section {
-            margin-bottom: 20px;
+            margin-bottom: 15px;
             page-break-inside: avoid;
         }
         
         .section-title {
-            font-size: 13px;
+            font-size: 12px;
             font-weight: bold;
-            color: #155e75; /* Darker teal color */
-            margin-bottom: 12px;
-            padding-bottom: 6px;
-            border-bottom: 2px solid #047857; /* Darker green color */
+            color: #000000;
+            margin-bottom: 8px;
+            padding-bottom: 4px;
+            border-bottom: 2px solid #000000;
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
         
-        /* Personal Info Section - CV Style */
+        /* Personal Info Section - Grid Layout */
         .personal-info {
-            margin-bottom: 25px;
+            margin-bottom: 15px;
+            
         }
         
-        .personal-info-item {
-            margin-bottom: 8px;
-            line-height: 1.8;
+        .personal-info-grid {
+            display: table;
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+        
+        .personal-info-row {
+            display: table-row;
         }
         
         .personal-info-label {
             font-weight: bold;
-            color: #155e75; /* Darker teal */
-            display: inline-block;
-            width: 140px;
+            color: #000000;
+            display: table-cell;
+            width: 35%;
+            padding: 4px 10px 4px 0;
+            vertical-align: top;
         }
         
         .personal-info-value {
-            color: #2c3e50;
+            color: #000000;
+            display: table-cell;
+            padding: 4px 0;
+            vertical-align: top;
         }
         
         /* Education & Experience - CV Style */
         .cv-item {
-            margin-bottom: 18px;
+            margin-bottom: 12px;
             padding-left: 0;
         }
         
         .cv-item-title {
             font-size: 11px;
             font-weight: bold;
-            color: #1e293b;
-            margin-bottom: 4px;
+            color: #000000;
+            margin-bottom: 2px;
         }
         
         .cv-item-subtitle {
             font-size: 10px;
-            color: #047857; /* Darker green */
-            margin-bottom: 4px;
+            color: #64748b;
+            margin-bottom: 2px;
             font-weight: 500;
         }
         
         .cv-item-meta {
             font-size: 9px;
             color: #64748b;
-            margin-bottom: 6px;
+            margin-bottom: 4px;
             font-style: italic;
         }
         
         .cv-item-description {
             font-size: 10px;
-            color: #475569;
-            line-height: 1.6;
-            margin-top: 6px;
+            color: #000000;
+            line-height: 1.4;
+            margin-top: 4px;
         }
         
         /* Skills & Languages - CV Style */
         .skills-languages {
             display: table;
             width: 100%;
-            margin-bottom: 15px;
+            margin-bottom: 10px;
         }
         
         .skills-column, .languages-column {
             display: table-cell;
             width: 50%;
             vertical-align: top;
-            padding-right: 15px;
+            padding-right: 10px;
         }
         
         .skill-tag, .language-tag {
             display: inline-block;
-            background-color: #e0f2fe; /* Light teal background */
-            color: #155e75; /* Darker teal text */
-            padding: 4px 10px;
-            margin: 3px 5px 3px 0;
-            border-radius: 12px;
+            background-color: #f5f5f5;
+            color: #000000;
+            padding: 2px 6px;
+            margin: 2px 3px 2px 0;
+            border-radius: 8px;
             font-size: 9px;
-            border: 1px solid #155e75; /* Darker teal border */
+            border: 1px solid #000000;
         }
         
         .skill-level, .language-proficiency {
-            color: #047857; /* Darker green */
+            color: #64748b;
             font-weight: 500;
-            margin-left: 5px;
+            margin-left: 3px;
         }
         
         /* Social Media - CV Style */
         .social-media-item {
             display: inline-block;
-            margin-right: 15px;
-            margin-bottom: 8px;
+            margin-right: 10px;
+            margin-bottom: 5px;
             font-size: 10px;
         }
         
         .social-media-label {
             font-weight: 500;
-            color: #155e75; /* Darker teal */
+            color: #000000;
         }
         
         .social-media-link {
-            color: #047857; /* Darker green */
+            color: #000000;
             text-decoration: none;
         }
         
         /* Certifications, Courses, Organizations, Achievements - CV Style */
         .cert-item, .course-item, .org-item, .achievement-item {
-            margin-bottom: 15px;
-            padding-bottom: 12px;
+            margin-bottom: 10px;
+            padding-bottom: 8px;
             border-bottom: 1px dotted #cbd5e1;
         }
         
@@ -184,40 +202,40 @@
         .history-table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 10px;
+            margin-top: 6px;
             font-size: 9px;
         }
         
         .history-table th {
-            background-color: #155e75; /* Darker teal */
+            background-color: #000000;
             color: white;
-            padding: 8px;
+            padding: 5px 6px;
             text-align: left;
             font-weight: bold;
             font-size: 9px;
         }
         
         .history-table td {
-            padding: 8px;
+            padding: 5px 6px;
             border-bottom: 1px solid #e2e8f0;
             font-size: 9px;
         }
         
         .history-table tr:nth-child(even) {
-            background-color: #f0f9ff; /* Very light blue */
+            background-color: #f9f9f9;
         }
         
         .badge {
             display: inline-block;
-            padding: 3px 8px;
-            border-radius: 10px;
+            padding: 2px 5px;
+            border-radius: 6px;
             font-size: 8px;
             font-weight: 500;
         }
         
         .badge-success {
-            background-color: #d1fae5; /* Light green */
-            color: #065f46; /* Dark green */
+            background-color: #d1fae5;
+            color: #065f46;
         }
         
         .badge-danger {
@@ -226,23 +244,25 @@
         }
         
         .badge-default {
-            background-color: #e0f2fe; /* Light teal */
-            color: #155e75; /* Darker teal */
+            background-color: #f5f5f5;
+            color: #000000;
         }
         
         .content-wrapper {
             position: relative;
-            min-height: 100vh;
-            padding: 0; /* No padding - margin is handled by @page */
+            min-height: calc(100vh - 20mm - 20mm); /* subtract top and bottom margin */
+            padding-right:20mm;
+            padding-left:20mm;
         }
         .main-content {
             padding-bottom: 0;
             margin-bottom: 0;
+            width: 100%;
         }
         
         .footer-wrapper {
             position: absolute;
-            bottom: 0;
+            bottom: 10mm;
             left: 0;
             right: 0;
             width: 100%;
@@ -257,7 +277,7 @@
         }
         
         .footer {
-            padding: 10px 0;
+            padding: 8px 0;
             text-align: center;
             color: #64748b;
             font-size: 9px;
@@ -269,9 +289,18 @@
             page-break-before: always;
         }
         
+        .section-content {
+            margin-top: 6px;
+        }
+        
         @media print {
             body {
                 font-size: 9px;
+                font-family: 'Times New Roman', 'DejaVu Serif', serif !important;
+            }
+            
+            * {
+                font-family: 'Times New Roman', 'DejaVu Serif', serif !important;
             }
             
             .section {
@@ -292,45 +321,47 @@
     
     <div class="content-wrapper">
         <div class="main-content">
-        <!-- Personal Information - CV Style -->
+        <!-- Personal Information - Grid Layout -->
         <div class="section">
             <div class="section-title">Informasi Pribadi</div>
             <div class="personal-info">
-                <div class="personal-info-item">
-                    <span class="personal-info-label">Nama Lengkap</span>
-                    <span class="personal-info-value">: <?php echo e($candidate['full_name']); ?></span>
-                </div>
-                <div class="personal-info-item">
-                    <span class="personal-info-label">Email</span>
-                    <span class="personal-info-value">: <?php echo e($candidate['email']); ?></span>
-                </div>
-                <div class="personal-info-item">
-                    <span class="personal-info-label">No. Telepon</span>
-                    <span class="personal-info-value">: <?php echo e($candidate['phone']); ?></span>
-                </div>
-                <div class="personal-info-item">
-                    <span class="personal-info-label">Alamat</span>
-                    <span class="personal-info-value">: <?php echo e($candidate['address']); ?></span>
-                </div>
-                <div class="personal-info-item">
-                    <span class="personal-info-label">Tempat & Tanggal Lahir</span>
-                    <span class="personal-info-value">: <?php echo e($candidate['birth_place']); ?>, <?php echo e($candidate['birth_date'] && $candidate['birth_date'] !== '-' ? (is_string($candidate['birth_date']) ? \Carbon\Carbon::parse($candidate['birth_date'])->format('d F Y') : $candidate['birth_date']->format('d F Y')) : '-'); ?></span>
-                </div>
-                <div class="personal-info-item">
-                    <span class="personal-info-label">Jenis Kelamin</span>
-                    <span class="personal-info-value">: <?php echo e($candidate['gender']); ?></span>
-                </div>
-                <div class="personal-info-item">
-                    <span class="personal-info-label">Posisi yang Dilamar</span>
-                    <span class="personal-info-value">: <?php echo e($candidate['position']); ?></span>
-                </div>
-                <div class="personal-info-item">
-                    <span class="personal-info-label">Periode</span>
-                    <span class="personal-info-value">: <?php echo e($candidate['period']); ?></span>
-                </div>
-                <div class="personal-info-item">
-                    <span class="personal-info-label">Tanggal Melamar</span>
-                    <span class="personal-info-value">: <?php echo e($candidate['applied_at'] && $candidate['applied_at'] !== '-' ? (is_string($candidate['applied_at']) ? \Carbon\Carbon::parse($candidate['applied_at'])->format('d F Y, H:i') : $candidate['applied_at']->format('d F Y, H:i')) : '-'); ?></span>
+                <div class="personal-info-grid">
+                    <div class="personal-info-row">
+                        <div class="personal-info-label">Nama Lengkap</div>
+                        <div class="personal-info-value"><?php echo e($candidate['full_name']); ?></div>
+                    </div>
+                    <div class="personal-info-row">
+                        <div class="personal-info-label">Email</div>
+                        <div class="personal-info-value"><?php echo e($candidate['email']); ?></div>
+                    </div>
+                    <div class="personal-info-row">
+                        <div class="personal-info-label">No. Telepon</div>
+                        <div class="personal-info-value"><?php echo e($candidate['phone']); ?></div>
+                    </div>
+                    <div class="personal-info-row">
+                        <div class="personal-info-label">Alamat</div>
+                        <div class="personal-info-value"><?php echo e($candidate['address']); ?></div>
+                    </div>
+                    <div class="personal-info-row">
+                        <div class="personal-info-label">Tempat & Tanggal Lahir</div>
+                        <div class="personal-info-value"><?php echo e($candidate['birth_place']); ?>, <?php echo e($candidate['birth_date'] && $candidate['birth_date'] !== '-' ? (is_string($candidate['birth_date']) ? \Carbon\Carbon::parse($candidate['birth_date'])->format('d F Y') : $candidate['birth_date']->format('d F Y')) : '-'); ?></div>
+                    </div>
+                    <div class="personal-info-row">
+                        <div class="personal-info-label">Jenis Kelamin</div>
+                        <div class="personal-info-value"><?php echo e($candidate['gender']); ?></div>
+                    </div>
+                    <div class="personal-info-row">
+                        <div class="personal-info-label">Posisi yang Dilamar</div>
+                        <div class="personal-info-value"><?php echo e($candidate['position']); ?></div>
+                    </div>
+                    <div class="personal-info-row">
+                        <div class="personal-info-label">Periode</div>
+                        <div class="personal-info-value"><?php echo e($candidate['period']); ?></div>
+                    </div>
+                    <div class="personal-info-row">
+                        <div class="personal-info-label">Tanggal Melamar</div>
+                        <div class="personal-info-value"><?php echo e($candidate['applied_at'] && $candidate['applied_at'] !== '-' ? (is_string($candidate['applied_at']) ? \Carbon\Carbon::parse($candidate['applied_at'])->format('d F Y, H:i') : $candidate['applied_at']->format('d F Y, H:i')) : '-'); ?></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -411,7 +442,7 @@
                 <div class="skills-languages">
                     <?php if(count($skills) > 0): ?>
                     <div class="skills-column">
-                        <div style="font-weight: bold; margin-bottom: 8px; color: #1e293b; font-size: 10px;">Keterampilan</div>
+                        <div style="font-weight: bold; margin-bottom: 5px; color: #000000; font-size: 10px;">Keterampilan</div>
                         <?php $__currentLoopData = $skills; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $skill): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
                         <div class="skill-tag">
                             <?php echo e($skill['name']); ?><span class="skill-level"><?php echo e($skill['level']); ?></span>
@@ -421,7 +452,7 @@
                     <?php endif; ?>
                     <?php if(count($languages) > 0): ?>
                     <div class="languages-column">
-                        <div style="font-weight: bold; margin-bottom: 8px; color: #1e293b; font-size: 10px;">Bahasa</div>
+                        <div style="font-weight: bold; margin-bottom: 5px; color: #000000; font-size: 10px;">Bahasa</div>
                         <?php $__currentLoopData = $languages; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $lang): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
                         <div class="language-tag">
                             <?php echo e($lang['name']); ?><span class="language-proficiency"><?php echo e($lang['proficiency']); ?></span>
