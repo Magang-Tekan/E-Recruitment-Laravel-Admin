@@ -5,7 +5,7 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Download, ThumbsUp, ThumbsDown, FileText } from 'lucide-react';
+import { ArrowLeft, ThumbsUp, ThumbsDown, FileText } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import StageActionDialog from '@/components/stage-action-dialog';
@@ -203,19 +203,6 @@ export default function AdministrationDetail({ candidate }: Props) {
                             <FileText className="mr-2 h-4 w-4" />
                             Export PDF
                         </Button>
-                        {candidate.user.cv && (
-                            <Button 
-                                variant="outline" 
-                                size="sm" 
-                                onClick={() => {
-                                    const downloadUrl = `/dashboard/candidates/${candidate.id}/cv/download`;
-                                    window.open(downloadUrl, '_blank');
-                                }}
-                            >
-                                <Download className="mr-2 h-4 w-4" />
-                                Download CV
-                            </Button>
-                        )}
                     </div>
                 </div>
 
