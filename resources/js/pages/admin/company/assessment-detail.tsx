@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { Head, router } from '@inertiajs/react';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
@@ -35,9 +35,50 @@ export default function AssessmentDetail({ candidate }: Props) {
         isOpen: boolean;
         action: 'accept' | 'reject';
     } | null>(null);
+    // Initialize essay scores from candidate data
+    const initialEssayScores = candidate?.stages?.psychological_test?.answers
+        ?.filter((answer: any) => answer.question.type === 'essay' && answer.score !== null && answer.score !== undefined)
+        ?.reduce((acc: Record<number, number>, answer: any) => {
+            if (typeof answer.score === 'number') {
+                acc[answer.id] = answer.score;
+            }
+            return acc;
+        }, {}) || {};
+    
     const [essayScores, setEssayScores] = useState<Record<number, string>>({});
-    const [savedEssayScores, setSavedEssayScores] = useState<Record<number, number>>({});
+    const [savedEssayScores, setSavedEssayScores] = useState<Record<number, number>>(initialEssayScores);
     const [isSavingScore, setIsSavingScore] = useState<Record<number, boolean>>({});
+
+    // Load essay scores from candidate data when component mounts or data changes
+    useEffect(() => {
+        const answers = candidate?.stages?.psychological_test?.answers || [];
+        const essayAnswers = answers.filter((answer: any) => answer.question.type === 'essay');
+        
+        const loadedScores: Record<number, number> = {};
+        const loadedInputScores: Record<number, string> = {};
+        
+        essayAnswers.forEach((answer: any) => {
+            // Check if score exists (could be number, string, or null)
+            const scoreValue = answer.score;
+            if (scoreValue !== null && scoreValue !== undefined && scoreValue !== '') {
+                const numScore = typeof scoreValue === 'number' ? scoreValue : parseFloat(String(scoreValue));
+                if (!isNaN(numScore) && numScore >= 0 && numScore <= 100) {
+                    loadedScores[answer.id] = numScore;
+                    loadedInputScores[answer.id] = numScore.toString();
+                }
+            }
+        });
+        
+        // Always update saved scores from loaded data (prioritize loaded data over existing)
+        if (Object.keys(loadedScores).length > 0) {
+            setSavedEssayScores(loadedScores);
+            setEssayScores(loadedInputScores);
+        } else {
+            // Clear scores if no data found
+            setSavedEssayScores({});
+            setEssayScores({});
+        }
+    }, [candidate?.stages?.psychological_test?.answers]);
 
     const isPsychologicalTest = (): boolean => {
         // Check both question pack test_type AND vacancy psychotest_name
@@ -273,12 +314,31 @@ export default function AssessmentDetail({ candidate }: Props) {
     
     // Get the psychological test history specifically, not just the first history
     const psychologicalTestHistory = candidate?.history?.find((h: any) => 
+        h?.status?.code === 'psychotest' || 
         h?.status?.code === 'psychological_test' || 
         h?.status?.name?.toLowerCase()?.includes('psychological') ||
         h?.status?.name?.toLowerCase()?.includes('assessment')
     );
     
     const completedAt = candidate?.stages?.psychological_test?.completed_at ?? psychologicalTestHistory?.completed_at ?? null;
+    
+    // Get saved score from history if available
+    const savedHistoryScore = psychologicalTestHistory?.score;
+    
+    // Check if assessment has been completed (decision already made)
+    // Assessment is considered completed if:
+    // 1. There's a completed_at date, OR
+    // 2. The status is not 'pending' and there's a score or notes
+    const isAssessmentCompleted = completedAt !== null || 
+        (psychologicalTestHistory && 
+         psychologicalTestHistory.status?.code !== 'pending' && 
+         (psychologicalTestHistory.score !== null || psychologicalTestHistory.notes !== null));
+    
+    // Also check if application has moved to next stage (interview)
+    const hasMovedToNextStage = candidate?.history?.some((h: any) => 
+        h.status?.code === 'interview' || 
+        h.status?.stage === 'interview'
+    ) || false;
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -395,12 +455,17 @@ export default function AssessmentDetail({ candidate }: Props) {
                                         </>
                                     )}
                                     
-                                    {/* Manual scoring only available if test is completed */}
-                                    {completedAt ? (
+                                    {/* Manual scoring only available if test is completed by candidate AND assessment decision not made yet */}
+                                    {completedAt && !isAssessmentCompleted && !hasMovedToNextStage ? (
                                         <Button variant="secondary" className="gap-2" onClick={() => setManualScoringDialog(true)}>
                                             <BookOpen className="h-4 w-4" />
                                             Manual Scoring
                                         </Button>
+                                    ) : completedAt && (isAssessmentCompleted || hasMovedToNextStage) ? (
+                                        /* Show status if assessment decision already made */
+                                        <div className="text-sm text-blue-600 bg-blue-50 dark:bg-blue-900/20 px-3 py-2 rounded-md border border-blue-200 dark:border-blue-800">
+                                            ✓ Assessment sudah selesai. Keputusan sudah diberikan.
+                                        </div>
                                     ) : (
                                         /* Show status if test not completed yet */
                                         <div className="text-sm text-amber-600 bg-amber-50 px-3 py-2 rounded-md border border-amber-200">
@@ -459,8 +524,19 @@ export default function AssessmentDetail({ candidate }: Props) {
                                                 }
                                                 finalScore = totalQuestions > 0 ? finalScore / totalQuestions : 0;
                                                 
-                                                const scoreColor = finalScore >= 70 ? 'text-green-700' : finalScore >= 50 ? 'text-yellow-700' : 'text-red-700';
+                                                // Use saved score from history if available (when admin has already given decision)
+                                                // If hasUnscoredEssay, don't show final score (show "Pending" instead)
                                                 const hasUnscoredEssay = essayAnswers.length > 0 && essayScoreValues.length < essayAnswers.length;
+                                                
+                                                const displayScore = hasUnscoredEssay && savedHistoryScore === null
+                                                    ? null // Don't show score if essay is not scored and no saved score
+                                                    : (savedHistoryScore !== null && savedHistoryScore !== undefined 
+                                                        ? Number(savedHistoryScore) 
+                                                        : finalScore);
+                                                
+                                                const scoreColor = displayScore === null 
+                                                    ? 'text-amber-700' 
+                                                    : (displayScore >= 70 ? 'text-green-700' : displayScore >= 50 ? 'text-yellow-700' : 'text-red-700');
                                                 
                                                 return (
                                                     <div>
@@ -479,7 +555,9 @@ export default function AssessmentDetail({ candidate }: Props) {
                                                             <div>
                                                                 <p className="text-sm text-gray-600">Final Score</p>
                                                                 <p className={`text-2xl font-bold ${scoreColor}`}>
-                                                                    {hasUnscoredEssay ? 'Pending' : finalScore.toFixed(2) + '%'}
+                                                                    {displayScore === null || (hasUnscoredEssay && savedHistoryScore === null) 
+                                                                        ? 'Pending' 
+                                                                        : displayScore.toFixed(2) + '%'}
                                                                 </p>
                                                             </div>
                                                         </div>
@@ -580,9 +658,9 @@ export default function AssessmentDetail({ candidate }: Props) {
                                                                         min="0"
                                                                         max="100"
                                                                         step="0.01"
-                                                                        value={essayScores[answer.id] !== undefined 
+                                                                        value={essayScores[answer.id] !== undefined && essayScores[answer.id] !== ''
                                                                             ? essayScores[answer.id] 
-                                                                            : (currentScore !== null 
+                                                                            : (currentScore !== null && currentScore !== undefined
                                                                                 ? currentScore.toString() 
                                                                                 : '')}
                                                                         onChange={(e) => {
@@ -603,8 +681,8 @@ export default function AssessmentDetail({ candidate }: Props) {
                                                                                     score: score,
                                                                                 }, {
                                                                                     preserveScroll: true,
-                                                                                    onSuccess: () => {
-                                                                                        // Update saved scores state
+                                                                                    onSuccess: (page) => {
+                                                                                        // Update saved scores state immediately
                                                                                         setSavedEssayScores(prev => ({
                                                                                             ...prev,
                                                                                             [answer.id]: score
@@ -614,6 +692,27 @@ export default function AssessmentDetail({ candidate }: Props) {
                                                                                             [answer.id]: score.toString()
                                                                                         }));
                                                                                         setIsSavingScore(prev => ({ ...prev, [answer.id]: false }));
+                                                                                        
+                                                                                        // Also update from the response data if available
+                                                                                        if (page?.props?.candidate?.stages?.psychological_test?.answers) {
+                                                                                            const updatedAnswers = page.props.candidate.stages.psychological_test.answers;
+                                                                                            const updatedEssayAnswer = updatedAnswers.find((a: any) => a.id === answer.id);
+                                                                                            if (updatedEssayAnswer && updatedEssayAnswer.score !== null && updatedEssayAnswer.score !== undefined) {
+                                                                                                const updatedScore = typeof updatedEssayAnswer.score === 'number' 
+                                                                                                    ? updatedEssayAnswer.score 
+                                                                                                    : parseFloat(updatedEssayAnswer.score);
+                                                                                                if (!isNaN(updatedScore)) {
+                                                                                                    setSavedEssayScores(prev => ({
+                                                                                                        ...prev,
+                                                                                                        [answer.id]: updatedScore
+                                                                                                    }));
+                                                                                                    setEssayScores(prev => ({
+                                                                                                        ...prev,
+                                                                                                        [answer.id]: updatedScore.toString()
+                                                                                                    }));
+                                                                                                }
+                                                                                            }
+                                                                                        }
                                                                                     },
                                                                                     onError: (errors) => {
                                                                                         console.error('Error saving essay score:', errors);
@@ -655,14 +754,35 @@ export default function AssessmentDetail({ candidate }: Props) {
                                         )}
                                     </div>
 
-                                    <div className="flex justify-end gap-3">
-                                        <Button variant="outline" className="gap-2" onClick={() => setActionDialog({ isOpen: true, action: 'reject' })}>
-                                            Reject
-                                        </Button>
-                                        <Button className="gap-2" onClick={() => setActionDialog({ isOpen: true, action: 'accept' })}>
-                                            Pass to Interview
-                                        </Button>
-                                    </div>
+                                    {/* Only show action buttons if assessment is not completed yet */}
+                                    {!isAssessmentCompleted && !hasMovedToNextStage && (
+                                        <div className="flex justify-end gap-3">
+                                            <Button variant="outline" className="gap-2" onClick={() => setActionDialog({ isOpen: true, action: 'reject' })}>
+                                                Reject
+                                            </Button>
+                                            <Button className="gap-2" onClick={() => setActionDialog({ isOpen: true, action: 'accept' })}>
+                                                Pass to Interview
+                                            </Button>
+                                        </div>
+                                    )}
+                                    
+                                    {/* Show status message if assessment is already completed */}
+                                    {(isAssessmentCompleted || hasMovedToNextStage) && (
+                                        <div className="flex justify-end">
+                                            <div className="rounded-lg border p-4 bg-blue-50 dark:bg-blue-900/20">
+                                                <p className="text-sm text-blue-800 dark:text-blue-200 font-medium">
+                                                    {hasMovedToNextStage 
+                                                        ? '✓ Assessment sudah selesai. Candidate telah dipindahkan ke tahap Interview.'
+                                                        : '✓ Assessment sudah selesai. Keputusan sudah diberikan.'}
+                                                </p>
+                                                {completedAt && (
+                                                    <p className="text-xs text-blue-600 dark:text-blue-300 mt-1">
+                                                        Selesai pada: {format(new Date(completedAt), 'dd MMM yyyy HH:mm')}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>

@@ -343,8 +343,13 @@ export default function Assessment({ candidates, filters, companyInfo, periodInf
                                                                 }
 
                                                                 // For non-psychological tests (technical/general), show calculated scores
-                                                                // Check for manual score from history first
-                                                                const manualScore = candidate.history?.[0]?.score;
+                                                                // Check for manual score from history first (from assessment history specifically)
+                                                                const assessmentHistory = candidate.history?.find(h => 
+                                                                    h.stage === 'psychological_test' || 
+                                                                    h.status_code === 'psychotest' ||
+                                                                    h.status_code === 'psychological_test'
+                                                                );
+                                                                const manualScore = assessmentHistory?.score;
                                                                 if (manualScore !== null && manualScore !== undefined) {
                                                                     return (
                                                                         <span className="text-blue-700">
@@ -352,11 +357,20 @@ export default function Assessment({ candidates, filters, companyInfo, periodInf
                                                                         </span>
                                                                     );
                                                                 }
-                                                                // Check for calculated assessment score
+                                                                // Check for calculated assessment score (from calculateTestScore)
+                                                                // Note: calculateTestScore returns null if essay questions are not all scored
                                                                 if (candidate.assessment?.total_score !== null && candidate.assessment?.total_score !== undefined) {
                                                                     return (
                                                                         <span className="text-green-700">
                                                                             {Number(candidate.assessment.total_score).toFixed(2)}
+                                                                        </span>
+                                                                    );
+                                                                }
+                                                                // If total_score is null, it means essay questions need scoring
+                                                                if (candidate.assessment?.total_score === null) {
+                                                                    return (
+                                                                        <span className="text-amber-600">
+                                                                            Pending
                                                                         </span>
                                                                     );
                                                                 }

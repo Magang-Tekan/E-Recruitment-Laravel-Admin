@@ -347,16 +347,56 @@ class ApplicationStageController extends Controller
                     // For psychological test, use the new scoring logic
                     $calculatedScore = $this->calculateTestScore($application);
                     
-                    // If psychological test returns null, it means manual scoring is required
-                    if ($calculatedScore === null && !isset($validated['score'])) {
-                        // Don't proceed with automatic passing - require manual scoring
-                        return back()->withErrors(['error' => 'This is a psychological test that requires manual scoring. Please use the export feature to manually evaluate and score the test.']);
+                    // Check if this is a psychological test (requires manual scoring)
+                    if ($this->isPsychologicalTest($application)) {
+                        // For psychological tests, require manual score input
+                        if ($calculatedScore === null && !isset($validated['score'])) {
+                            return back()->withErrors(['error' => 'This is a psychological test that requires manual scoring. Please use the export feature to manually evaluate and score the test.']);
+                        }
+                        // Use manual score if provided
+                        $calculatedScore = $validated['score'] ?? $calculatedScore ?? 0;
+                    } else {
+                        // For non-psychological tests (technical, etc.)
+                        // Check if all essay questions are scored
+                        if ($calculatedScore === null && !isset($validated['score'])) {
+                            $essayAnswers = $application->userAnswers()
+                                ->whereHas('question', function($q) {
+                                    $q->where('question_type', 'essay');
+                                })
+                                ->get();
+                            
+                            $unscoredEssays = $essayAnswers->filter(function($answer) {
+                                return $answer->score === null;
+                            });
+                            
+                            if ($unscoredEssays->count() > 0) {
+                                return back()->withErrors(['error' => 'Please score all essay questions before proceeding. ' . $unscoredEssays->count() . ' essay question(s) still need scoring.']);
+                            }
+                            
+                            // Recalculate after ensuring all essays are scored
+                            $calculatedScore = $this->calculateTestScore($application);
+                        }
+                        
+                        // Use manual score if provided, otherwise use calculated score
+                        $calculatedScore = $validated['score'] ?? $calculatedScore ?? 0;
                     }
-                    
-                    // Use manual score if provided, otherwise use calculated score
-                    $calculatedScore = $validated['score'] ?? $calculatedScore ?? 0;
                 }
 
+                // For psychological_test stage, ensure score is calculated and saved correctly
+                if ($stage === 'psychological_test') {
+                    // Reload to get latest essay scores before final calculation
+                    $application->load('vacancyPeriod.vacancy.questionPack');
+                    $application->load('userAnswers.question');
+                    
+                    // Final recalculation to ensure all essay scores are included (for non-psychological tests)
+                    if (!$this->isPsychologicalTest($application)) {
+                        $finalCalculatedScore = $this->calculateTestScore($application);
+                        if ($finalCalculatedScore !== null) {
+                            $calculatedScore = $finalCalculatedScore;
+                        }
+                    }
+                }
+                
                 // Update current history with score and notes
                 $currentHistory->update([
                     'score' => $calculatedScore,
@@ -1008,7 +1048,7 @@ class ApplicationStageController extends Controller
             },
             'userAnswers' => function($query) {
                 $query->with([
-                    'question:id,question_text',
+                    'question:id,question_text,question_type',
                     'choice:id,choice_text,is_correct'
                 ]);
             },
@@ -1089,15 +1129,15 @@ class ApplicationStageController extends Controller
                 'assessment' => [
                     'answers' => $application->userAnswers->map(fn($answer) => [
                         'question' => $answer->question->question_text,
-                        'answer' => $answer->choice?->choice_text ?? 'No answer selected',
+                        'answer' => $answer->choice?->choice_text ?? ($answer->answer_text ?? 'No answer selected'),
                         'is_correct' => $answer->choice?->is_correct ?? false,
-                        'score' => $answer->choice?->is_correct ? 100 : 0,
+                        'score' => $answer->choice?->is_correct ? 100 : ($answer->score ?? 0),
+                        'question_type' => $answer->question->question_type ?? 'multiple_choice',
+                        'answer_text' => $answer->answer_text,
+                        'essay_score' => $answer->score,
                     ])->toArray(),
-                    'total_score' => $application->userAnswers->count() > 0 
-                        ? $application->userAnswers->filter(function($answer) {
-                            return $answer->choice?->is_correct ?? false;
-                        })->count() / $application->userAnswers->count() * 100
-                        : 0,
+                    // Use calculateTestScore for proper score calculation (includes essay scores)
+                    'total_score' => $this->calculateTestScore($application),
                 ]
             ];
         })->all();
@@ -1431,15 +1471,33 @@ class ApplicationStageController extends Controller
             }
         ])->findOrFail($id);
 
-        $currentHistory = $application->history->whereIn('status.stage', ['psychological_test'])->first();
+        // Get the current active assessment history, or the most recent completed one
+        $currentHistory = $application->history()
+            ->whereHas('status', function($q) {
+                $q->where('code', 'psychotest');
+            })
+            ->orderBy('processed_at', 'desc')
+            ->first();
+            
         $firstHistory = $application->history->first(); // Get the very first history
 
-        // Calculate assessment score
-        $assessmentScore = $application->userAnswers->count() > 0 
-            ? $application->userAnswers->filter(function($answer) {
-                return $answer->choice?->is_correct ?? false;
-            })->count() / $application->userAnswers->count() * 100
-            : 0;
+        // Calculate assessment score using the proper method
+        // First check if there's already a saved score in history
+        $assessmentScore = $currentHistory?->score;
+        
+        // If no score in history, calculate it using calculateTestScore
+        // Note: calculateTestScore returns null if essay questions are not all scored
+        if ($assessmentScore === null) {
+            $application->load('vacancyPeriod.vacancy.questionPack');
+            $calculatedScore = $this->calculateTestScore($application);
+            // Keep null if calculateTestScore returns null (essay questions need scoring)
+            // Only set to 0 if there are no answers at all
+            if ($calculatedScore === null && $application->userAnswers->count() > 0) {
+                $assessmentScore = null; // Keep null to indicate pending essay scoring
+            } else {
+                $assessmentScore = $calculatedScore ?? 0;
+            }
+        }
 
         // Debug: Log the data to see what's being sent
         Log::info('Assessment Detail Data:', [
@@ -1518,7 +1576,7 @@ class ApplicationStageController extends Controller
                         'status' => $currentHistory?->status->code ?? 'pending',
                         'started_at' => $currentHistory?->processed_at,
                         'completed_at' => $currentHistory?->completed_at,
-                        'score' => $assessmentScore,
+                        'score' => $currentHistory?->score ?? $assessmentScore,
                         'answers' => $application->userAnswers->count() > 0 
                             ? $application->userAnswers->map(fn($answer) => [
                                 'id' => $answer->id,
@@ -2641,6 +2699,9 @@ class ApplicationStageController extends Controller
             ]);
         }
 
+        // Reload the user answer to ensure fresh data
+        $userAnswer->refresh();
+        
         return back()->with('success', 'Essay score updated successfully');
     }
 
