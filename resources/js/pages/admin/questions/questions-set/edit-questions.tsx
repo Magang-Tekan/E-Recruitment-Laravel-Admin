@@ -31,8 +31,9 @@ interface Props {
 
 export default function EditQuestionPage({ question }: Props) {
   const [questionText, setQuestionText] = useState(question.question_text);
-  const [options, setOptions] = useState([...question.options]);
-  const [correctAnswer, setCorrectAnswer] = useState(question.correct_answer);
+  const [questionType, setQuestionType] = useState<'multiple_choice' | 'essay'>(question.question_type as 'multiple_choice' | 'essay' || 'multiple_choice');
+  const [options, setOptions] = useState(question.question_type === 'essay' ? [] : (question.options || []));
+  const [correctAnswer, setCorrectAnswer] = useState(question.question_type === 'essay' ? '' : (question.correct_answer || ''));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
 
@@ -40,11 +41,31 @@ export default function EditQuestionPage({ question }: Props) {
   useEffect(() => {
     const isChanged = 
       questionText !== question.question_text ||
-      JSON.stringify(options) !== JSON.stringify(question.options) ||
-      correctAnswer !== question.correct_answer;
+      questionType !== question.question_type ||
+      (questionType === 'multiple_choice' && (
+        JSON.stringify(options) !== JSON.stringify(question.options || []) ||
+        correctAnswer !== (question.correct_answer || '')
+      )) ||
+      (questionType === 'essay' && question.question_type === 'multiple_choice');
     
     setIsDirty(isChanged);
-  }, [questionText, options, correctAnswer, question]);
+  }, [questionText, questionType, options, correctAnswer, question]);
+
+  const handleQuestionTypeChange = (type: 'multiple_choice' | 'essay') => {
+    setQuestionType(type);
+    
+    // Reset options and correct_answer when switching to essay
+    if (type === 'essay') {
+      setOptions([]);
+      setCorrectAnswer('');
+    } else {
+      // Initialize with default options when switching to multiple_choice
+      if (options.length === 0) {
+        setOptions(['', '']);
+        setCorrectAnswer('');
+      }
+    }
+  };
 
   const handleOptionChange = (index: number, value: string) => {
     const newOptions = [...options];
@@ -84,15 +105,19 @@ export default function EditQuestionPage({ question }: Props) {
       return false;
     }
 
-    if (options.some(opt => !opt.trim())) {
-      alert('All options must have content');
-      return false;
-    }
+    // For multiple choice questions, validate options and correct answer
+    if (questionType === 'multiple_choice') {
+      if (options.some(opt => !opt.trim())) {
+        alert('All options must have content');
+        return false;
+      }
 
-    if (!correctAnswer || !options.includes(correctAnswer)) {
-      alert('You must select a valid correct answer');
-      return false;
+      if (!correctAnswer || !options.includes(correctAnswer)) {
+        alert('You must select a valid correct answer');
+        return false;
+      }
     }
+    // For essay questions, no additional validation needed
 
     return true;
   };
@@ -104,11 +129,22 @@ export default function EditQuestionPage({ question }: Props) {
 
     setIsSubmitting(true);
 
-    router.put(`/dashboard/questions/${question.id}`, {
+    const payload: any = {
       question_text: questionText,
-      options: options,
-      correct_answer: correctAnswer,
-    }, {
+      question_type: questionType,
+    };
+    
+    // Only include options and correct_answer for multiple choice questions
+    if (questionType === 'multiple_choice') {
+      payload.options = options;
+      payload.correct_answer = correctAnswer;
+    } else {
+      // For essay questions, send empty array for options
+      payload.options = [];
+      payload.correct_answer = '';
+    }
+
+    router.put(`/dashboard/questions/${question.id}`, payload, {
       onSuccess: () => {
         router.visit('/dashboard/questions/questions-set');
       },
@@ -160,6 +196,18 @@ export default function EditQuestionPage({ question }: Props) {
           <CardContent className="space-y-6">
             <div className="space-y-4">
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Question Type</label>
+                <select
+                  value={questionType}
+                  onChange={(e) => handleQuestionTypeChange(e.target.value as 'multiple_choice' | 'essay')}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value="multiple_choice">Multiple Choice</option>
+                  <option value="essay">Essay</option>
+                </select>
+              </div>
+
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Question Text</label>
                 <textarea
                   value={questionText}
@@ -169,48 +217,58 @@ export default function EditQuestionPage({ question }: Props) {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Options</label>
-                <p className="text-xs text-gray-500 mb-2">Select the radio button next to the correct answer</p>
-                
-                {options.map((option, index) => (
-                  <div key={index} className="flex items-center gap-3 mb-2">
-                    <input
-                      type="radio"
-                      name="correctAnswer"
-                      checked={option === correctAnswer}
-                      onChange={() => setCorrectAnswer(option)}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500"
-                    />
-                    <input
-                      type="text"
-                      value={option}
-                      onChange={(e) => handleOptionChange(index, e.target.value)}
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      placeholder={`Option ${String.fromCharCode(65 + index)}`}
-                    />
-                    {options.length > 2 && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeOption(index)}
-                        className="text-red-500 h-8 w-8 p-0"
-                      >
-                        ×
-                      </Button>
-                    )}
-                  </div>
-                ))}
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={addOption}
-                  className="mt-2"
-                >
-                  + Add Option
-                </Button>
-              </div>
+              {questionType === 'multiple_choice' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Options</label>
+                  <p className="text-xs text-gray-500 mb-2">Select the radio button next to the correct answer</p>
+                  
+                  {options.map((option, index) => (
+                    <div key={index} className="flex items-center gap-3 mb-2">
+                      <input
+                        type="radio"
+                        name="correctAnswer"
+                        checked={option === correctAnswer}
+                        onChange={() => setCorrectAnswer(option)}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500"
+                      />
+                      <input
+                        type="text"
+                        value={option}
+                        onChange={(e) => handleOptionChange(index, e.target.value)}
+                        className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        placeholder={`Option ${String.fromCharCode(65 + index)}`}
+                      />
+                      {options.length > 2 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeOption(index)}
+                          className="text-red-500 h-8 w-8 p-0"
+                        >
+                          ×
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={addOption}
+                    className="mt-2"
+                  >
+                    + Add Option
+                  </Button>
+                </div>
+              )}
+
+              {questionType === 'essay' && (
+                <div className="p-3 bg-blue-50 rounded-md">
+                  <p className="text-sm text-blue-700">
+                    This is an essay question. Candidates will provide a written answer when taking the test.
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="flex justify-end gap-3 pt-4 border-t">

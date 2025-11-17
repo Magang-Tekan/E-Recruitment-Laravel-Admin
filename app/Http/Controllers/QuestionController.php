@@ -65,9 +65,10 @@ class QuestionController extends Controller
         $request->validate([
             'questions' => 'required|array',
             'questions.*.question_text' => 'required|string',
-            'questions.*.options' => 'required|array',
-            'questions.*.options.*' => 'required|string',
-            'questions.*.correct_answer' => 'required|string',
+            'questions.*.question_type' => 'required|in:multiple_choice,essay',
+            'questions.*.options' => 'required_if:questions.*.question_type,multiple_choice|array',
+            'questions.*.options.*' => 'required_with:questions.*.options|string',
+            'questions.*.correct_answer' => 'required_if:questions.*.question_type,multiple_choice|string',
         ]);
 
         try {
@@ -81,37 +82,46 @@ class QuestionController extends Controller
             DB::beginTransaction();
 
             foreach ($questionsData as $questionData) {
-                if (empty($questionData['options']) || !is_array($questionData['options'])) {
-                    continue;
-                }
-
-                $validOptions = array_filter($questionData['options'], function ($option) {
-                    return trim($option) !== '';
-                });
-
-                if (count($validOptions) === 0) {
-                    continue;
-                }
-
-                // Validate that correct_answer exists in options
-                if (!in_array($questionData['correct_answer'], $validOptions)) {
-                    continue;
-                }
+                $questionType = $questionData['question_type'] ?? 'multiple_choice';
 
                 // Create the question
                 $question = Question::create([
                     'question_text' => $questionData['question_text'] ?? '',
-                    'question_type' => 'multiple_choice'
+                    'question_type' => $questionType
                 ]);
 
-                // Create choices for the question
-                foreach ($validOptions as $option) {
-                    Choice::create([
-                        'question_id' => $question->id,
-                        'choice_text' => $option,
-                        'is_correct' => $option === $questionData['correct_answer'],
-                    ]);
+                // Only create choices for multiple choice questions
+                if ($questionType === 'multiple_choice') {
+                    if (empty($questionData['options']) || !is_array($questionData['options'])) {
+                        $question->delete(); // Delete the question if options are invalid
+                        continue;
+                    }
+
+                    $validOptions = array_filter($questionData['options'], function ($option) {
+                        return trim($option) !== '';
+                    });
+
+                    if (count($validOptions) === 0) {
+                        $question->delete(); // Delete the question if no valid options
+                        continue;
+                    }
+
+                    // Validate that correct_answer exists in options
+                    if (!isset($questionData['correct_answer']) || !in_array($questionData['correct_answer'], $validOptions)) {
+                        $question->delete(); // Delete the question if correct answer is invalid
+                        continue;
+                    }
+
+                    // Create choices for the question
+                    foreach ($validOptions as $option) {
+                        Choice::create([
+                            'question_id' => $question->id,
+                            'choice_text' => $option,
+                            'is_correct' => $option === $questionData['correct_answer'],
+                        ]);
+                    }
                 }
+                // For essay questions, no choices are created
 
                 $createdQuestions[] = $question;
             }
@@ -197,35 +207,56 @@ class QuestionController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $request->validate([
+        $questionType = $request->question_type ?? 'multiple_choice';
+        
+        // Build validation rules based on question type
+        $rules = [
             'question_text' => 'required|string',
-            'options' => 'required|array|min:2',
-            'options.*' => 'required|string',
-            'correct_answer' => 'required|string',
-        ]);
+            'question_type' => 'required|in:multiple_choice,essay',
+        ];
+        
+        if ($questionType === 'multiple_choice') {
+            $rules['options'] = 'required|array|min:2';
+            $rules['options.*'] = 'required|string';
+            $rules['correct_answer'] = 'required|string';
+        } else {
+            // For essay questions, options are optional (can be empty array)
+            $rules['options'] = 'nullable|array';
+            $rules['correct_answer'] = 'nullable|string';
+        }
+        
+        $request->validate($rules);
 
         try {
             $question = Question::findOrFail($id);
-            
-            // Validate that correct_answer exists in options
-            if (!in_array($request->correct_answer, $request->options)) {
-                return redirect()->back()->with('error', 'The correct answer must be one of the options.');
+
+            // For multiple choice questions, validate options and correct answer
+            if ($questionType === 'multiple_choice') {
+                // Validate that correct_answer exists in options
+                if (!in_array($request->correct_answer, $request->options)) {
+                    return redirect()->back()->with('error', 'The correct answer must be one of the options.');
+                }
             }
 
             $question->update([
                 'question_text' => $request->question_text,
+                'question_type' => $questionType,
             ]);
 
             // Delete old choices
             $question->choices()->delete();
-            // Create new choices
-            foreach ($request->options as $option) {
-                Choice::create([
-                    'question_id' => $question->id,
-                    'choice_text' => $option,
-                    'is_correct' => $option === $request->correct_answer,
-                ]);
+            
+            // Only create new choices for multiple choice questions
+            if ($questionType === 'multiple_choice' && $request->has('options')) {
+                foreach ($request->options as $option) {
+                    Choice::create([
+                        'question_id' => $question->id,
+                        'choice_text' => $option,
+                        'is_correct' => $option === $request->correct_answer,
+                    ]);
+                }
             }
+            // For essay questions, no choices are created
 
             return redirect()->route('admin.questions.question-set')->with('success', 'Question updated successfully!');
         } catch (\Exception $e) {

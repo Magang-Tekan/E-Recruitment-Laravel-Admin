@@ -26,6 +26,7 @@ export interface Job {
     start_date?: string;
     department?: { id: number; name: string };
     major?: { id: number; name: string };
+    majors?: { id: number; name: string }[];
     educationLevel?: { id: number; name: string };
     questionPack?: {
         id: number;
@@ -71,9 +72,9 @@ export function JobTable({
 
     return (
         <div className="w-full">
-            <div className="overflow-x-auto rounded-md border border-gray-200">
-                <Table className="min-w-full bg-blue-50 [&_tr:hover]:bg-transparent">
-                    <TableHeader className="bg-blue-50 [&_tr:hover]:bg-transparent">
+            <div className="overflow-x-auto rounded-md border border-border">
+                <Table className="min-w-full bg-muted/30 dark:bg-muted/20 [&_tr:hover]:bg-transparent">
+                    <TableHeader className="bg-muted/30 dark:bg-muted/20 [&_tr:hover]:bg-transparent">
                         <TableRow className="hover:bg-transparent [&>th]:hover:bg-transparent">
                             <TableHead className="w-[60px] py-3">ID</TableHead>
                             <TableHead className="w-[200px] py-3">Title</TableHead>
@@ -128,15 +129,31 @@ export function JobTable({
                                 ))
                         ) : jobs.length > 0 ? (
                             jobs.map((job, index) => (
-                                <TableRow key={job.id} className={index % 2 === 0 ? 'bg-white' : 'bg-blue-50'}>
-                                    <TableCell className="whitespace-nowrap">{String(job.id).padStart(2, '0')}</TableCell>
-                                    <TableCell className="whitespace-nowrap">{job.title}</TableCell>
-                                    <TableCell className="whitespace-nowrap">{job.department?.name || '-'}</TableCell>
-                                    <TableCell className="whitespace-nowrap">{job.major?.name || '-'}</TableCell>
-                                    <TableCell className="whitespace-nowrap">{job.location}</TableCell>
-                                    <TableCell className="whitespace-nowrap">{job.salary || '-'}</TableCell>
-                                    <TableCell className="whitespace-nowrap">{job.company?.name || '-'}</TableCell>
+                                <TableRow key={job.id} className={index % 2 === 0 ? 'bg-background' : 'bg-muted/30 dark:bg-muted/20'}>
+                                    <TableCell className="whitespace-nowrap text-foreground">{String(job.id).padStart(2, '0')}</TableCell>
+                                    <TableCell className="whitespace-nowrap text-foreground">{job.title}</TableCell>
+                                    <TableCell className="whitespace-nowrap text-foreground">{job.department?.name || '-'}</TableCell>
                                     <TableCell className="whitespace-nowrap">
+                                        {job.majors && job.majors.length > 0 ? (
+                                            <div className="flex flex-wrap gap-1">
+                                                {job.majors.map((major, idx) => (
+                                                    <Badge key={major.id} variant="secondary" className="text-xs">
+                                                        {major.name}
+                                                    </Badge>
+                                                ))}
+                                            </div>
+                                        ) : job.major?.name ? (
+                                            <Badge variant="secondary" className="text-xs">
+                                                {job.major.name}
+                                            </Badge>
+                                        ) : (
+                                            '-'
+                                        )}
+                                    </TableCell>
+                                    <TableCell className="whitespace-nowrap text-foreground">{job.location}</TableCell>
+                                    <TableCell className="whitespace-nowrap text-foreground">{job.salary || '-'}</TableCell>
+                                    <TableCell className="whitespace-nowrap text-foreground">{job.company?.name || '-'}</TableCell>
+                                    <TableCell className="whitespace-nowrap text-foreground">
                                         {job.vacancyType?.name || '-'}
                                     </TableCell>
                                     <TableCell className="whitespace-nowrap">
@@ -152,19 +169,19 @@ export function JobTable({
                                         <div className="flex justify-center space-x-3">
                                             <button
                                                 onClick={() => onView(job.id)}
-                                                className="rounded-full p-1.5 text-blue-500 hover:bg-blue-100 hover:text-blue-700"
+                                                className="rounded-full p-1.5 text-primary hover:bg-primary/10 hover:text-primary dark:hover:bg-primary/20 transition-colors"
                                             >
                                                 <EyeIcon className="h-4.5 w-4.5" />
                                             </button>
                                             <button
                                                 onClick={() => onEdit(job.id)}
-                                                className="rounded-full p-1.5 text-blue-500 hover:bg-blue-100 hover:text-blue-700"
+                                                className="rounded-full p-1.5 text-primary hover:bg-primary/10 hover:text-primary dark:hover:bg-primary/20 transition-colors"
                                             >
                                                 <Pencil className="h-4.5 w-4.5" />
                                             </button>
                                             <button
                                                 onClick={() => onDelete(job.id)}
-                                                className="rounded-full p-1.5 text-blue-500 hover:bg-blue-100 hover:text-blue-700"
+                                                className="rounded-full p-1.5 text-destructive hover:bg-destructive/10 hover:text-destructive dark:hover:bg-destructive/20 transition-colors"
                                             >
                                                 <Trash2 className="h-4.5 w-4.5" />
                                             </button>
@@ -174,7 +191,7 @@ export function JobTable({
                             ))
                         ) : (
                             <TableRow>
-                                <TableCell colSpan={10} className="py-4 text-center">
+                                <TableCell colSpan={10} className="py-4 text-center text-foreground">
                                     No jobs found.
                                 </TableCell>
                             </TableRow>

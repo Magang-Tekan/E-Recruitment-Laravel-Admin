@@ -108,28 +108,28 @@ export default function QuestionTable({
                 ))
               : paginatedQuestions.length > 0 ? (
                   paginatedQuestions.map((question, idx) => (
-                    <TableRow key={question.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-blue-50'}>
-                      <TableCell>{String(question.id).padStart(2, '0')}</TableCell>
-                      <TableCell className="whitespace-normal break-words max-w-xs">{question.question_text}</TableCell>
-                      <TableCell>{question.correct_answer}</TableCell>
-                      <TableCell>{question.question_type}</TableCell>
+                    <TableRow key={question.id} className={idx % 2 === 0 ? 'bg-background' : 'bg-muted/30 dark:bg-muted/20'}>
+                      <TableCell className="text-foreground">{String(question.id).padStart(2, '0')}</TableCell>
+                      <TableCell className="whitespace-normal break-words max-w-xs text-foreground">{question.question_text}</TableCell>
+                      <TableCell className="text-foreground">{question.correct_answer}</TableCell>
+                      <TableCell className="text-foreground">{question.question_type}</TableCell>
                       <TableCell className="text-center">
                         <div className="flex justify-center space-x-3">
                           <button
                             onClick={() => onView(question.id)}
-                            className="rounded-full p-1.5 text-blue-500 hover:bg-blue-100 hover:text-blue-700"
+                            className="rounded-full p-1.5 text-primary hover:bg-primary/10 hover:text-primary dark:hover:bg-primary/20 transition-colors"
                           >
                             <Eye className="h-4.5 w-4.5" />
                           </button>
                           <button
                             onClick={() => onEdit(question.id)}
-                            className="rounded-full p-1.5 text-blue-500 hover:bg-blue-100 hover:text-blue-700"
+                            className="rounded-full p-1.5 text-primary hover:bg-primary/10 hover:text-primary dark:hover:bg-primary/20 transition-colors"
                           >
                             <Pencil className="h-4.5 w-4.5" />
                           </button>
                           <button
                             onClick={() => onDelete(question.id)}
-                            className="rounded-full p-1.5 text-blue-500 hover:bg-blue-100 hover:text-blue-700"
+                            className="rounded-full p-1.5 text-destructive hover:bg-destructive/10 hover:text-destructive dark:hover:bg-destructive/20 transition-colors"
                           >
                             <Trash2 className="h-4.5 w-4.5" />
                           </button>
@@ -139,7 +139,7 @@ export default function QuestionTable({
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={5} className="py-4 text-center text-gray-500">
+                    <TableCell colSpan={5} className="py-4 text-center text-muted-foreground">
                       Tidak ada soal ditemukan.
                     </TableCell>
                   </TableRow>

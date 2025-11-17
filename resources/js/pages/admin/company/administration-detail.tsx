@@ -203,7 +203,7 @@ export default function AdministrationDetail({ candidate }: Props) {
                             <FileText className="mr-2 h-4 w-4" />
                             Download PDF
                         </Button>
-                    </div>
+                    </div>  
                 </div>
 
                 {/* Action Buttons */}

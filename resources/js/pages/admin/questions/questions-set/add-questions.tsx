@@ -15,6 +15,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 interface QuestionItem {
   question_text: string;
+  question_type: 'multiple_choice' | 'essay';
   options: string[];
   correct_answer: string;
 }
@@ -28,13 +29,32 @@ interface Props {
 
 export default function AddQuestionsPage({ questionPack }: Props) {
   const [questions, setQuestions] = useState<QuestionItem[]>([
-    { question_text: '', options: ['', ''], correct_answer: '' },
+    { question_text: '', question_type: 'multiple_choice', options: ['', ''], correct_answer: '' },
   ]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleQuestionChange = (index: number, value: string) => {
     const updated = [...questions];
     updated[index].question_text = value;
+    setQuestions(updated);
+  };
+
+  const handleQuestionTypeChange = (index: number, type: 'multiple_choice' | 'essay') => {
+    const updated = [...questions];
+    updated[index].question_type = type;
+    
+    // Reset options and correct_answer when switching to essay
+    if (type === 'essay') {
+      updated[index].options = [];
+      updated[index].correct_answer = '';
+    } else {
+      // Initialize with default options when switching to multiple_choice
+      if (updated[index].options.length === 0) {
+        updated[index].options = ['', ''];
+        updated[index].correct_answer = '';
+      }
+    }
+    
     setQuestions(updated);
   };
 
@@ -80,7 +100,7 @@ export default function AddQuestionsPage({ questionPack }: Props) {
   };
 
   const addQuestion = () => {
-    setQuestions([...questions, { question_text: '', options: ['', ''], correct_answer: '' }]);
+    setQuestions([...questions, { question_text: '', question_type: 'multiple_choice', options: ['', ''], correct_answer: '' }]);
   };
 
   const removeQuestion = (qIndex: number) => {
@@ -101,19 +121,23 @@ export default function AddQuestionsPage({ questionPack }: Props) {
         return false;
       }
       
-      // Check all options have text
-      for (let j = 0; j < questions[i].options.length; j++) {
-        if (!questions[i].options[j].trim()) {
-          alert(`Option ${j + 1} in Question ${i + 1} has no text`);
+      // For multiple choice questions, validate options and correct answer
+      if (questions[i].question_type === 'multiple_choice') {
+        // Check all options have text
+        for (let j = 0; j < questions[i].options.length; j++) {
+          if (!questions[i].options[j].trim()) {
+            alert(`Option ${j + 1} in Question ${i + 1} has no text`);
+            return false;
+          }
+        }
+        
+        // Check a correct answer is selected
+        if (!questions[i].correct_answer) {
+          alert(`No correct answer selected for Question ${i + 1}`);
           return false;
         }
       }
-      
-      // Check a correct answer is selected
-      if (!questions[i].correct_answer) {
-        alert(`No correct answer selected for Question ${i + 1}`);
-        return false;
-      }
+      // For essay questions, no additional validation needed
     }
     
     return true;
@@ -190,6 +214,18 @@ export default function AddQuestionsPage({ questionPack }: Props) {
                 
                 <div className="space-y-4">
                   <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Question Type</label>
+                    <select
+                      value={question.question_type}
+                      onChange={(e) => handleQuestionTypeChange(qIndex, e.target.value as 'multiple_choice' | 'essay')}
+                      className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    >
+                      <option value="multiple_choice">Multiple Choice</option>
+                      <option value="essay">Essay</option>
+                    </select>
+                  </div>
+
+                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Question Text</label>
                     <textarea
                       value={question.question_text}
@@ -199,48 +235,58 @@ export default function AddQuestionsPage({ questionPack }: Props) {
                     />
                   </div>
                   
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Options</label>
-                    <p className="text-xs text-gray-500 mb-2">Select the radio button next to the correct answer</p>
-                    
-                    {question.options.map((option, oIndex) => (
-                      <div key={oIndex} className="flex items-center gap-3 mb-2">
-                        <input
-                          type="radio"
-                          name={`correct-answer-${qIndex}`}
-                          checked={option === question.correct_answer}
-                          onChange={() => setCorrectAnswer(qIndex, option)}
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500"
-                        />
-                        <input
-                          type="text"
-                          value={option}
-                          onChange={(e) => handleOptionChange(qIndex, oIndex, e.target.value)}
-                          placeholder={`Option ${String.fromCharCode(65 + oIndex)}`}
-                          className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        />
-                        {question.options.length > 2 && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeOption(qIndex, oIndex)}
-                            className="text-red-500 h-8 w-8 p-0"
-                          >
-                            ×
-                          </Button>
-                        )}
-                      </div>
-                    ))}
-                    
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => addOption(qIndex)}
-                      className="mt-2"
-                    >
-                      + Add Option
-                    </Button>
-                  </div>
+                  {question.question_type === 'multiple_choice' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Options</label>
+                      <p className="text-xs text-gray-500 mb-2">Select the radio button next to the correct answer</p>
+                      
+                      {question.options.map((option, oIndex) => (
+                        <div key={oIndex} className="flex items-center gap-3 mb-2">
+                          <input
+                            type="radio"
+                            name={`correct-answer-${qIndex}`}
+                            checked={option === question.correct_answer}
+                            onChange={() => setCorrectAnswer(qIndex, option)}
+                            className="h-4 w-4 text-blue-600 focus:ring-blue-500"
+                          />
+                          <input
+                            type="text"
+                            value={option}
+                            onChange={(e) => handleOptionChange(qIndex, oIndex, e.target.value)}
+                            placeholder={`Option ${String.fromCharCode(65 + oIndex)}`}
+                            className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          />
+                          {question.options.length > 2 && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeOption(qIndex, oIndex)}
+                              className="text-red-500 h-8 w-8 p-0"
+                            >
+                              ×
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => addOption(qIndex)}
+                        className="mt-2"
+                      >
+                        + Add Option
+                      </Button>
+                    </div>
+                  )}
+
+                  {question.question_type === 'essay' && (
+                    <div className="p-3 bg-blue-50 rounded-md">
+                      <p className="text-sm text-blue-700">
+                        This is an essay question. Candidates will provide a written answer when taking the test.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}

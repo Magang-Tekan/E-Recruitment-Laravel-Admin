@@ -205,7 +205,7 @@ export default function QuestionSet({ questions = [] }: Props) {
                 filteredQuestions.map((question, index) => (
                   <div
                     key={question.id}
-                    className={`grid grid-cols-12 border-t p-4 ${index % 2 === 1 ? 'bg-gray-50 dark:bg-gray-800/50' : ''}`}
+                    className={`grid grid-cols-12 border-t border-border p-4 text-foreground ${index % 2 === 1 ? 'bg-muted/30 dark:bg-muted/20' : 'bg-background'}`}
                   >
                     <div className="col-span-1">{(index + 1).toString().padStart(2, '0')}</div>
                     <div className="col-span-8 truncate">{question.question_text || 'Question without text'}</div>
@@ -213,7 +213,7 @@ export default function QuestionSet({ questions = [] }: Props) {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-8 w-8 p-0 text-blue-500"
+                        className="h-8 w-8 p-0 text-primary hover:bg-primary/10 dark:hover:bg-primary/20"
                         onClick={() => handleViewQuestion(question.id)}
                         title="View"
                       >
@@ -222,7 +222,7 @@ export default function QuestionSet({ questions = [] }: Props) {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-8 w-8 p-0 text-blue-500"
+                        className="h-8 w-8 p-0 text-primary hover:bg-primary/10 dark:hover:bg-primary/20"
                         onClick={() => handleEditQuestion(question.id)}
                         title="Edit"
                       >
@@ -231,7 +231,7 @@ export default function QuestionSet({ questions = [] }: Props) {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-8 w-8 p-0 text-red-500"
+                        className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10 dark:hover:bg-destructive/20"
                         onClick={() => openDeleteDialog(question.id)}
                         title="Delete"
                         disabled={isLoading}
