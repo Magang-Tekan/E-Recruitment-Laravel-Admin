@@ -26,6 +26,7 @@ export interface Job {
     start_date?: string;
     department?: { id: number; name: string };
     major?: { id: number; name: string };
+    majors?: { id: number; name: string }[];
     educationLevel?: { id: number; name: string };
     questionPack?: {
         id: number;
@@ -132,7 +133,23 @@ export function JobTable({
                                     <TableCell className="whitespace-nowrap">{String(job.id).padStart(2, '0')}</TableCell>
                                     <TableCell className="whitespace-nowrap">{job.title}</TableCell>
                                     <TableCell className="whitespace-nowrap">{job.department?.name || '-'}</TableCell>
-                                    <TableCell className="whitespace-nowrap">{job.major?.name || '-'}</TableCell>
+                                    <TableCell className="whitespace-nowrap">
+                                        {job.majors && job.majors.length > 0 ? (
+                                            <div className="flex flex-wrap gap-1">
+                                                {job.majors.map((major, idx) => (
+                                                    <Badge key={major.id} variant="secondary" className="text-xs">
+                                                        {major.name}
+                                                    </Badge>
+                                                ))}
+                                            </div>
+                                        ) : job.major?.name ? (
+                                            <Badge variant="secondary" className="text-xs">
+                                                {job.major.name}
+                                            </Badge>
+                                        ) : (
+                                            '-'
+                                        )}
+                                    </TableCell>
                                     <TableCell className="whitespace-nowrap">{job.location}</TableCell>
                                     <TableCell className="whitespace-nowrap">{job.salary || '-'}</TableCell>
                                     <TableCell className="whitespace-nowrap">{job.company?.name || '-'}</TableCell>

@@ -92,11 +92,19 @@ class Vacancies extends Model
     }
     
     /**
-     * Get the major associated with this vacancy.
+     * Get the major associated with this vacancy (legacy single relationship).
      */
     public function major()
     {
         return $this->belongsTo(MasterMajor::class, 'major_id');
+    }
+    
+    /**
+     * Get the majors associated with this vacancy (many-to-many relationship).
+     */
+    public function majors()
+    {
+        return $this->belongsToMany(MasterMajor::class, 'vacancy_major', 'vacancy_id', 'major_id');
     }
     
     /**

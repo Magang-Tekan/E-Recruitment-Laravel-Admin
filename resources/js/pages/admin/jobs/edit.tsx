@@ -15,6 +15,7 @@ interface JobProps {
         title: string;
         department_id: number;
         major_id?: number;
+        majors?: { id: number; name: string }[];
         location: string;
         salary?: string;
         company_id: number;
@@ -52,6 +53,12 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 export default function EditJob({ job, companies, departments, majors, questionPacks, educationLevels, vacancyTypes }: JobProps) {
     const [isLoading, setIsLoading] = useState(false);
+    const [majorSearchQuery, setMajorSearchQuery] = useState<string>("");
+    const [selectedMajorIds, setSelectedMajorIds] = useState<number[]>(
+        job.majors && job.majors.length > 0 
+            ? job.majors.map(m => m.id) 
+            : (job.major_id ? [job.major_id] : [])
+    );
     const [formData, setFormData] = useState({
         title: job.title,
         department_id: String(job.department_id),
@@ -91,7 +98,8 @@ export default function EditJob({ job, companies, departments, majors, questionP
             const data = {
                 title: formData.title.trim(),
                 department_id: parseInt(formData.department_id),
-                major_id: formData.major_id !== 'none' ? parseInt(formData.major_id) : null,
+                major_id: formData.major_id !== 'none' ? parseInt(formData.major_id) : null, // Legacy support
+                major_ids: selectedMajorIds.length > 0 ? selectedMajorIds : null,
                 location: formData.location.trim(),
                 salary: formData.salary.trim() || null,
                 company_id: parseInt(formData.company_id),
@@ -244,24 +252,66 @@ export default function EditJob({ job, companies, departments, majors, questionP
                                     </div>
 
                                     <div>
-                                        <Label htmlFor="major_id">Major</Label>
-                                        <Select
-                                            name="major_id"
-                                            value={formData.major_id}
-                                            onValueChange={(value) => handleChange({ target: { name: 'major_id', value } } as any)}
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select major" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="none">None</SelectItem>
-                                                {majors.map((major) => (
-                                                    <SelectItem key={major.id} value={String(major.id)}>
-                                                        {major.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                        <Label htmlFor="major_id">Major (Bisa pilih lebih dari satu)</Label>
+                                        <div className="space-y-2">
+                                            <Input
+                                                type="text"
+                                                placeholder="Cari major..."
+                                                value={majorSearchQuery}
+                                                onChange={(e) => setMajorSearchQuery(e.target.value)}
+                                                className="w-full"
+                                            />
+                                            <div className="border rounded-md p-3 min-h-[42px] max-h-[200px] overflow-y-auto">
+                                                {(() => {
+                                                    const filteredMajors = majorSearchQuery.trim()
+                                                        ? majors.filter(major => 
+                                                            major.name.toLowerCase().includes(majorSearchQuery.toLowerCase())
+                                                        )
+                                                        : majors;
+                                                    
+                                                    if (filteredMajors.length === 0) {
+                                                        return (
+                                                            <p className="text-sm text-gray-500">
+                                                                {majorSearchQuery.trim() ? 'No majors found' : 'No majors available'}
+                                                            </p>
+                                                        );
+                                                    }
+                                                    
+                                                    return (
+                                                        <div className="space-y-2">
+                                                            {filteredMajors.map((major) => {
+                                                                const isSelected = selectedMajorIds.includes(major.id);
+                                                                return (
+                                                                    <label
+                                                                        key={major.id}
+                                                                        className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded"
+                                                                    >
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            checked={isSelected}
+                                                                            onChange={(e) => {
+                                                                                if (e.target.checked) {
+                                                                                    setSelectedMajorIds([...selectedMajorIds, major.id]);
+                                                                                } else {
+                                                                                    setSelectedMajorIds(selectedMajorIds.filter(id => id !== major.id));
+                                                                                }
+                                                                            }}
+                                                                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                                                        />
+                                                                        <span className="text-sm">{major.name}</span>
+                                                                    </label>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    );
+                                                })()}
+                                            </div>
+                                        </div>
+                                        {selectedMajorIds.length > 0 && (
+                                            <p className="text-xs text-gray-500 mt-1">
+                                                {selectedMajorIds.length} major(s) selected
+                                            </p>
+                                        )}
                                     </div>
 
                                     <div>

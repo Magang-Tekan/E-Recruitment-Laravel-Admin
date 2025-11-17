@@ -38,11 +38,13 @@ const breadcrumbs: BreadcrumbItem[] = [
 export default function CreateJob({ companies, departments, majors, questionPacks, educationLevels, vacancyTypes, openPeriods }: CreateJobPageProps) {
     const [requirements, setRequirements] = useState<string>("");
     const [benefits, setBenefits] = useState<string>("");
+    const [majorSearchQuery, setMajorSearchQuery] = useState<string>("");
 
     const { data, setData, post, processing, errors } = useForm({
         title: "",
         department_id: "",
-        major_id: "",
+        major_id: "", // Legacy support
+        major_ids: [] as number[],
         location: "",
         salary: "",
         company_id: "",
@@ -69,8 +71,19 @@ export default function CreateJob({ companies, departments, majors, questionPack
         }
         
         // Create the submission data
-        const submitData = {
-            ...data,
+        const submitData: any = {
+            title: data.title,
+            department_id: data.department_id,
+            major_ids: data.major_ids.length > 0 ? data.major_ids : [],
+            location: data.location,
+            salary: data.salary,
+            company_id: data.company_id,
+            vacancy_type_id: data.vacancy_type_id,
+            job_description: data.job_description,
+            question_pack_id: data.question_pack_id,
+            education_level_id: data.education_level_id,
+            period_id: data.period_id,
+            psychotest_name: data.psychotest_name,
             requirements: requirementsArray,
             benefits: benefitsArray,
         };
@@ -156,20 +169,67 @@ export default function CreateJob({ companies, departments, majors, questionPack
                                     </div>
 
                                     <div>
-                                        <Label htmlFor="major">Major</Label>
-                                        <Select value={data.major_id} onValueChange={(value) => setData('major_id', value)}>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select major" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {majors.map((major) => (
-                                                    <SelectItem key={major.id} value={major.id.toString()}>
-                                                        {major.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                        {errors.major_id && <p className="text-red-500 text-sm">{errors.major_id}</p>}
+                                        <Label htmlFor="major">Major (Bisa pilih lebih dari satu)</Label>
+                                        <div className="space-y-2">
+                                            <Input
+                                                type="text"
+                                                placeholder="Cari major..."
+                                                value={majorSearchQuery}
+                                                onChange={(e) => setMajorSearchQuery(e.target.value)}
+                                                className="w-full"
+                                            />
+                                            <div className="border rounded-md p-3 min-h-[42px] max-h-[200px] overflow-y-auto">
+                                                {(() => {
+                                                    const filteredMajors = majorSearchQuery.trim()
+                                                        ? majors.filter(major => 
+                                                            major.name.toLowerCase().includes(majorSearchQuery.toLowerCase())
+                                                        )
+                                                        : majors;
+                                                    
+                                                    if (filteredMajors.length === 0) {
+                                                        return (
+                                                            <p className="text-sm text-gray-500">
+                                                                {majorSearchQuery.trim() ? 'No majors found' : 'No majors available'}
+                                                            </p>
+                                                        );
+                                                    }
+                                                    
+                                                    return (
+                                                        <div className="space-y-2">
+                                                            {filteredMajors.map((major) => {
+                                                                const isSelected = data.major_ids.includes(major.id);
+                                                                return (
+                                                                    <label
+                                                                        key={major.id}
+                                                                        className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded"
+                                                                    >
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            checked={isSelected}
+                                                                            onChange={(e) => {
+                                                                                if (e.target.checked) {
+                                                                                    setData('major_ids', [...data.major_ids, major.id]);
+                                                                                } else {
+                                                                                    setData('major_ids', data.major_ids.filter((id: number) => id !== major.id));
+                                                                                }
+                                                                            }}
+                                                                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                                                        />
+                                                                        <span className="text-sm">{major.name}</span>
+                                                                    </label>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    );
+                                                })()}
+                                            </div>
+                                        </div>
+                                        {data.major_ids.length > 0 && (
+                                            <p className="text-xs text-gray-500 mt-1">
+                                                {data.major_ids.length} major(s) selected
+                                            </p>
+                                        )}
+                                        {errors.major_ids && <p className="text-red-500 text-sm">{errors.major_ids}</p>}
                                     </div>
 
                                     <div>

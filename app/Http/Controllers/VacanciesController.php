@@ -36,6 +36,7 @@ class VacanciesController extends Controller
             'company:id,name',
             'department:id,name',
             'major:id,name',
+            'majors:id,name',
             'questionPack:id,pack_name,description,test_type,duration',
             'educationLevel:id,name',
             'vacancyType:id,name'
@@ -74,6 +75,12 @@ class VacanciesController extends Controller
                         'id' => $vacancy->major->id,
                         'name' => $vacancy->major->name
                     ] : null,
+                    'majors' => $vacancy->majors ? $vacancy->majors->map(function($major) {
+                        return [
+                            'id' => $major->id,
+                            'name' => $major->name
+                        ];
+                    })->toArray() : [],
                     'location' => $vacancy->location,
                     'salary' => $vacancy->salary,
                     'company_id' => $vacancy->company_id,
@@ -124,7 +131,9 @@ class VacanciesController extends Controller
             $validated = $request->validate([
                 'title' => 'required|string|max:255',
                 'department_id' => 'required|integer|exists:departments,id',
-                'major_id' => 'nullable|integer|exists:master_majors,id',
+                'major_id' => 'nullable|integer|exists:master_majors,id', // Legacy support
+                'major_ids' => 'nullable|array',
+                'major_ids.*' => 'integer|exists:master_majors,id',
                 'location' => 'required|string|max:255',
                 'salary' => 'nullable|string|max:255',
                 'company_id' => 'required|integer|exists:companies,id',
@@ -163,7 +172,7 @@ class VacanciesController extends Controller
                 'user_id' => $user_id,
                 'title' => $validated['title'],
                 'department_id' => $validated['department_id'],
-                'major_id' => $validated['major_id'] ?? null,
+                'major_id' => null, // Always set to null, use majors relationship instead
                 'location' => $validated['location'],
                 'salary' => $validated['salary'] ?? null,
                 'company_id' => $validated['company_id'],
@@ -180,6 +189,14 @@ class VacanciesController extends Controller
             
             $job = Vacancies::create($createData);
 
+            // Sync majors (many-to-many relationship)
+            if (!empty($validated['major_ids']) && is_array($validated['major_ids']) && count($validated['major_ids']) > 0) {
+                $job->majors()->sync($validated['major_ids']);
+            } elseif (!empty($validated['major_id']) && is_numeric($validated['major_id'])) {
+                // Legacy support: if only major_id is provided, sync it
+                $job->majors()->sync([$validated['major_id']]);
+            }
+
             // Create vacancy-period relationship
             if ($validated['period_id']) {
                 VacancyPeriods::create([
@@ -189,7 +206,7 @@ class VacanciesController extends Controller
             }
 
             // Load the relationships
-            $job->load(['company', 'department', 'major', 'questionPack', 'educationLevel', 'vacancyType']);
+            $job->load(['company', 'department', 'major', 'majors', 'questionPack', 'educationLevel', 'vacancyType']);
             
             Log::info('Job created successfully with ID: ' . $job->id);
             
@@ -230,7 +247,9 @@ class VacanciesController extends Controller
             $validated = $request->validate([
                 'title' => 'required|string|max:255',
                 'department_id' => 'required|integer|exists:departments,id',
-                'major_id' => 'nullable|integer|exists:master_majors,id',
+                'major_id' => 'nullable|integer|exists:master_majors,id', // Legacy support
+                'major_ids' => 'nullable|array',
+                'major_ids.*' => 'integer|exists:master_majors,id',
                 'location' => 'required|string|max:255',
                 'salary' => 'nullable|string|max:255',
                 'company_id' => 'required|integer|exists:companies,id',
@@ -265,7 +284,7 @@ class VacanciesController extends Controller
             $updateData = [
                 'title' => $validated['title'],
                 'department_id' => $validated['department_id'],
-                'major_id' => $validated['major_id'] ?? null,
+                'major_id' => null, // Always set to null, use majors relationship instead
                 'location' => $validated['location'],
                 'salary' => $validated['salary'] ?? null,
                 'company_id' => $validated['company_id'],
@@ -282,8 +301,19 @@ class VacanciesController extends Controller
             
             $job->update($updateData);
 
+            // Sync majors (many-to-many relationship)
+            if (!empty($validated['major_ids']) && is_array($validated['major_ids']) && count($validated['major_ids']) > 0) {
+                $job->majors()->sync($validated['major_ids']);
+            } elseif (!empty($validated['major_id']) && is_numeric($validated['major_id'])) {
+                // Legacy support: if only major_id is provided, sync it
+                $job->majors()->sync([$validated['major_id']]);
+            } else {
+                // If no majors provided, detach all
+                $job->majors()->detach();
+            }
+
             // Load the fresh model with relationships
-            $job = $job->fresh(['company', 'department', 'major', 'questionPack', 'educationLevel', 'vacancyType']);
+            $job = $job->fresh(['company', 'department', 'major', 'majors', 'questionPack', 'educationLevel', 'vacancyType']);
             
             Log::info('Job updated successfully, fresh data: ', $job->toArray());
 
@@ -425,6 +455,7 @@ class VacanciesController extends Controller
             'company',
             'department',
             'major',
+            'majors',
             'questionPack',
             'educationLevel',
             'vacancyType'
@@ -442,8 +473,9 @@ class VacanciesController extends Controller
     {
         $job = Vacancies::with([
             'company',
-            'department', 
+            'department',
             'major',
+            'majors',
             'questionPack',
             'educationLevel',
             'vacancyType'
