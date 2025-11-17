@@ -55,9 +55,9 @@ export function UserTable({
     return (
         <div className="w-full">
             {/* Responsive table container with horizontal scroll */}
-            <div className="overflow-x-auto rounded-md border border-gray-200">
-                <Table className="min-w-full bg-blue-50 [&_tr:hover]:bg-transparent">
-                    <TableHeader className="bg-blue-50 [&_tr:hover]:bg-transparent">
+            <div className="overflow-x-auto rounded-md border border-border">
+                <Table className="min-w-full bg-muted/30 dark:bg-muted/20 [&_tr:hover]:bg-transparent">
+                    <TableHeader className="bg-muted/30 dark:bg-muted/20 [&_tr:hover]:bg-transparent">
                         <TableRow className="hover:bg-transparent [&>th]:hover:bg-transparent">
                             <TableHead className="w-[60px] py-3">ID</TableHead>
                             <TableHead className="w-[180px] py-3">Name</TableHead>
@@ -104,32 +104,32 @@ export function UserTable({
                                 ))
                         ) : users.length > 0 ? (
                             users.map((user, index) => (
-                                <TableRow key={user.id} className={index % 2 === 0 ? 'bg-white' : 'bg-blue-50'}>
-                                    <TableCell className="whitespace-nowrap">{String(user.id).padStart(2, '0')}</TableCell>
-                                    <TableCell className="font-medium whitespace-nowrap">{user.name}</TableCell>
-                                    <TableCell className="break-all whitespace-nowrap md:break-normal">{user.email}</TableCell>
-                                    <TableCell className="whitespace-nowrap">{user.role}</TableCell>
-                                    <TableCell className="whitespace-nowrap">{user.email_verified_at ? 'Verified' : 'Non Verified'}</TableCell>
-                                    <TableCell className="whitespace-nowrap">
+                                <TableRow key={user.id} className={index % 2 === 0 ? 'bg-background' : 'bg-muted/30 dark:bg-muted/20'}>
+                                    <TableCell className="whitespace-nowrap text-foreground">{String(user.id).padStart(2, '0')}</TableCell>
+                                    <TableCell className="font-medium whitespace-nowrap text-foreground">{user.name}</TableCell>
+                                    <TableCell className="break-all whitespace-nowrap md:break-normal text-foreground">{user.email}</TableCell>
+                                    <TableCell className="whitespace-nowrap text-foreground">{user.role}</TableCell>
+                                    <TableCell className="whitespace-nowrap text-foreground">{user.email_verified_at ? 'Verified' : 'Non Verified'}</TableCell>
+                                    <TableCell className="whitespace-nowrap text-foreground">
                                         {user.created_at ? format(new Date(user.created_at), 'MMM dd, yyyy') : '-'}
                                     </TableCell>
                                     <TableCell>
                                         <div className="flex justify-center space-x-3">
                                             <button
                                                 onClick={() => onView(user.id)}
-                                                className="rounded-full p-1.5 text-blue-500 hover:bg-blue-100 hover:text-blue-700"
+                                                className="rounded-full p-1.5 text-primary hover:bg-primary/10 hover:text-primary dark:hover:bg-primary/20 transition-colors"
                                             >
                                                 <Eye className="h-4.5 w-4.5" />
                                             </button>
                                             <button
                                                 onClick={() => onEdit(user.id)}
-                                                className="rounded-full p-1.5 text-blue-500 hover:bg-blue-100 hover:text-blue-700"
+                                                className="rounded-full p-1.5 text-primary hover:bg-primary/10 hover:text-primary dark:hover:bg-primary/20 transition-colors"
                                             >
                                                 <Pencil className="h-4.5 w-4.5" />
                                             </button>
                                             <button
                                                 onClick={() => onDelete(user.id)}
-                                                className="rounded-full p-1.5 text-blue-500 hover:bg-blue-100 hover:text-blue-700"
+                                                className="rounded-full p-1.5 text-destructive hover:bg-destructive/10 hover:text-destructive dark:hover:bg-destructive/20 transition-colors"
                                             >
                                                 <Trash2 className="h-4.5 w-4.5" />
                                             </button>
@@ -139,7 +139,7 @@ export function UserTable({
                             ))
                         ) : (
                             <TableRow>
-                                <TableCell colSpan={7} className="py-4 text-center">
+                                <TableCell colSpan={7} className="py-4 text-center text-foreground">
                                     No users found.
                                 </TableCell>
                             </TableRow>
@@ -151,31 +151,30 @@ export function UserTable({
             {/* Responsive pagination controls */}
             <div className="mt-6 flex flex-col items-center justify-between gap-4 sm:flex-row">
                 <div className="flex items-center space-x-2">
-                    <span className="text-sm text-gray-500">Show</span>
+                    <span className="text-sm text-muted-foreground">Show</span>
                     <Select value={pagination.per_page.toString()} onValueChange={handleItemsPerPageChange} disabled={isLoading}>
-                        <SelectTrigger className="h-8 w-16 rounded border border-blue-300 text-blue-300">
+                        <SelectTrigger className="h-8 w-16 rounded">
                             <SelectValue placeholder={pagination.per_page.toString()} />
                         </SelectTrigger>
-                        <SelectContent className="border border-blue-500">
+                        <SelectContent>
                             {itemsPerPageOptions.map((option) => (
                                 <SelectItem
                                     key={option}
                                     value={option.toString()}
-                                    className="text-blue-300 hover:bg-blue-50 focus:bg-blue-50 focus:text-blue-500"
                                 >
                                     {option}
                                 </SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
-                    <span className="text-sm text-gray-500">per page</span>
+                    <span className="text-sm text-muted-foreground">per page</span>
                 </div>
 
                 <div className="flex items-center gap-1">
                     <button
                         onClick={handlePrevPage}
                         disabled={pagination.current_page === 1 || isLoading}
-                        className="flex items-center justify-center rounded-md border border-blue-500 px-2 py-1 text-blue-500 hover:bg-blue-100 disabled:opacity-50"
+                        className="flex items-center justify-center rounded-md border border-border px-2 py-1 text-foreground hover:bg-muted disabled:opacity-50 transition-colors"
                     >
                         <ChevronLeft className="h-4 w-4" />
                     </button>
@@ -196,8 +195,10 @@ export function UserTable({
                                 key={idx}
                                 onClick={() => onPageChange(pageNumber)}
                                 disabled={isLoading}
-                                className={`flex h-8 min-w-[32px] items-center justify-center rounded-md px-2 ${
-                                    isActive ? 'bg-blue-500 text-white' : 'border border-blue-500 bg-white text-blue-500 hover:bg-blue-100'
+                                className={`flex h-8 min-w-[32px] items-center justify-center rounded-md px-2 transition-colors ${
+                                    isActive 
+                                        ? 'bg-primary text-primary-foreground' 
+                                        : 'border border-border bg-background text-foreground hover:bg-muted'
                                 } ${!isVisible ? 'hidden sm:flex' : ''}`}
                             >
                                 {pageNumber}
@@ -208,13 +209,13 @@ export function UserTable({
                     <button
                         onClick={handleNextPage}
                         disabled={pagination.current_page === pagination.last_page || isLoading}
-                        className="flex items-center justify-center rounded-md border border-blue-500 px-2 py-1 text-blue-500 hover:bg-blue-100 disabled:opacity-50"
+                        className="flex items-center justify-center rounded-md border border-border px-2 py-1 text-foreground hover:bg-muted disabled:opacity-50 transition-colors"
                     >
                         <ChevronRight className="h-4 w-4" />
                     </button>
                 </div>
 
-                <div className="text-center text-sm text-gray-500 sm:text-right">
+                <div className="text-center text-sm text-muted-foreground sm:text-right">
                     Showing {(pagination.current_page - 1) * pagination.per_page + 1} to{' '}
                     {Math.min(pagination.current_page * pagination.per_page, pagination.total)} of {pagination.total} entries
                 </div>

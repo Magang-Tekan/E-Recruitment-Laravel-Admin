@@ -103,7 +103,6 @@ export default function Jobs(props: JobProps) {
                         <h2 className="text-2xl font-semibold">Job Management</h2>
                         <Button
                             onClick={() => router.visit(route('admin.jobs.create'))}
-                            className="bg-blue-500 hover:bg-blue-700"
                         >
                             + Add Job
                         </Button>

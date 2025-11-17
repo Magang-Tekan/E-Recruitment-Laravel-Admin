@@ -135,9 +135,9 @@ export function PeriodsTable({
     return (
         <div className="w-full">
             {/* Responsive table container with horizontal scroll */}
-            <div className="overflow-x-auto rounded-md border border-gray-200">
-                <Table className="min-w-full bg-blue-50 [&_tr:hover]:bg-transparent">
-                    <TableHeader className="bg-blue-50 [&_tr:hover]:bg-transparent">
+            <div className="overflow-x-auto rounded-md border border-border">
+                <Table className="min-w-full bg-muted/30 dark:bg-muted/20 [&_tr:hover]:bg-transparent">
+                    <TableHeader className="bg-muted/30 dark:bg-muted/20 [&_tr:hover]:bg-transparent">
                         <TableRow className="hover:bg-transparent [&>th]:hover:bg-transparent">
                             <TableHead className="w-[60px] py-3">ID</TableHead>
                             <TableHead className="w-[180px] py-3">Name</TableHead>
@@ -192,31 +192,31 @@ export function PeriodsTable({
                                     key={period.id} 
                                     onClick={(e) => handleRowClick(period.id, e)}
                                     className={`
-                                        cursor-pointer transition-colors hover:bg-blue-100
+                                        cursor-pointer transition-colors hover:bg-muted
                                         ${selectedPeriodId === period.id 
-                                            ? 'bg-blue-100' 
-                                            : index % 2 === 0 ? 'bg-white' : 'bg-blue-50'
+                                            ? 'bg-primary/10 dark:bg-primary/20' 
+                                            : index % 2 === 0 ? 'bg-background' : 'bg-muted/30 dark:bg-muted/20'
                                         }
                                     `}
                                 >
-                                    <TableCell className="whitespace-nowrap font-medium">
+                                    <TableCell className="whitespace-nowrap font-medium text-foreground">
                                         {String(period.id).padStart(2, '0')}
                                     </TableCell>
-                                    <TableCell className="font-medium whitespace-nowrap">
+                                    <TableCell className="font-medium whitespace-nowrap text-foreground">
                                         {period.name}
                                     </TableCell>
-                                    <TableCell className="whitespace-nowrap">
+                                    <TableCell className="whitespace-nowrap text-foreground">
                                         {formatSimpleDate(period.startTime)}
                                     </TableCell>
-                                    <TableCell className="whitespace-nowrap">
+                                    <TableCell className="whitespace-nowrap text-foreground">
                                         {formatSimpleDate(period.endTime)}
                                     </TableCell>
                                     <TableCell className="whitespace-nowrap">
                                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                                            period.status === 'Open' ? 'bg-green-100 text-green-800' : 
-                                            period.status === 'Closed' ? 'bg-red-100 text-red-800' : 
-                                            period.status === 'Upcoming' ? 'bg-blue-100 text-blue-800' : 
-                                            'bg-gray-100 text-gray-800'
+                                            period.status === 'Open' ? 'bg-green-500/20 text-green-700 dark:text-green-400' : 
+                                            period.status === 'Closed' ? 'bg-destructive/20 text-destructive dark:text-destructive' : 
+                                            period.status === 'Upcoming' ? 'bg-primary/20 text-primary dark:text-primary' : 
+                                            'bg-muted text-muted-foreground'
                                         }`}>
                                             {period.status || 'Not Set'}
                                         </span>
@@ -227,17 +227,17 @@ export function PeriodsTable({
                                                 {period.companies.map((company, idx) => (
                                                     <span 
                                                         key={company.id}
-                                                        className="px-2 py-1 text-xs font-medium rounded-full bg-blue-50 text-blue-700"
+                                                        className="px-2 py-1 text-xs font-medium rounded-full bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary"
                                                     >
                                                         {company.name}
                                                     </span>
                                                 ))}
                                             </div>
                                         ) : (
-                                            <span className="text-gray-500 text-sm">No companies</span>
+                                            <span className="text-muted-foreground text-sm">No companies</span>
                                         )}
                                     </TableCell>
-                                    <TableCell className="whitespace-nowrap">
+                                    <TableCell className="whitespace-nowrap text-foreground">
                                         {period.applicantsCount || 0}
                                     </TableCell>
                                     <TableCell>
@@ -247,7 +247,7 @@ export function PeriodsTable({
                                                     e.stopPropagation(); // Prevent row click
                                                     onView(period.id);
                                                 }}
-                                                className="rounded-full p-1.5 text-blue-500 hover:bg-blue-100 hover:text-blue-700"
+                                                className="rounded-full p-1.5 text-primary hover:bg-primary/10 hover:text-primary dark:hover:bg-primary/20 transition-colors"
                                             >
                                                 <Eye className="h-4.5 w-4.5" />
                                             </button>
@@ -256,7 +256,7 @@ export function PeriodsTable({
                                                     e.stopPropagation(); // Prevent row click
                                                     onEdit(period.id);
                                                 }}
-                                                className="rounded-full p-1.5 text-blue-500 hover:bg-blue-100 hover:text-blue-700"
+                                                className="rounded-full p-1.5 text-primary hover:bg-primary/10 hover:text-primary dark:hover:bg-primary/20 transition-colors"
                                             >
                                                 <Edit className="h-4.5 w-4.5" />
                                             </button>
@@ -265,7 +265,7 @@ export function PeriodsTable({
                                                     e.stopPropagation(); // Prevent row click
                                                     onDelete(period.id);
                                                 }}
-                                                className="rounded-full p-1.5 text-red-500 hover:bg-red-100 hover:text-red-700"
+                                                className="rounded-full p-1.5 text-destructive hover:bg-destructive/10 hover:text-destructive dark:hover:bg-destructive/20 transition-colors"
                                             >
                                                 <Trash2 className="h-4.5 w-4.5" />
                                             </button>
@@ -275,7 +275,7 @@ export function PeriodsTable({
                             ))
                         ) : (
                             <TableRow>
-                                <TableCell colSpan={7} className="py-4 text-center">
+                                <TableCell colSpan={7} className="py-4 text-center text-foreground">
                                     No periods found
                                 </TableCell>
                             </TableRow>
@@ -287,31 +287,30 @@ export function PeriodsTable({
             {/* Responsive pagination controls */}
             <div className="mt-6 flex flex-col items-center justify-between gap-4 sm:flex-row">
                 <div className="flex items-center space-x-2">
-                    <span className="text-sm text-gray-500">Show</span>
+                    <span className="text-sm text-muted-foreground">Show</span>
                     <Select value={pagination.per_page.toString()} onValueChange={handleItemsPerPageChange} disabled={isLoading}>
-                        <SelectTrigger className="h-8 w-16 rounded border border-blue-300 text-blue-300">
+                        <SelectTrigger className="h-8 w-16 rounded">
                             <SelectValue placeholder={pagination.per_page.toString()} />
                         </SelectTrigger>
-                        <SelectContent className="border border-blue-500">
+                        <SelectContent>
                             {itemsPerPageOptions.map((option) => (
                                 <SelectItem
                                     key={option}
                                     value={option.toString()}
-                                    className="text-blue-300 hover:bg-blue-50 focus:bg-blue-50 focus:text-blue-500"
                                 >
                                     {option}
                                 </SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
-                    <span className="text-sm text-gray-500">per page</span>
+                    <span className="text-sm text-muted-foreground">per page</span>
                 </div>
 
                 <div className="flex items-center gap-1">
                     <button
                         onClick={handlePrevPage}
                         disabled={pagination.current_page === 1 || isLoading}
-                        className="flex items-center justify-center rounded-md border border-blue-500 px-2 py-1 text-blue-500 hover:bg-blue-100 disabled:opacity-50"
+                        className="flex items-center justify-center rounded-md border border-border px-2 py-1 text-foreground hover:bg-muted disabled:opacity-50 transition-colors"
                     >
                         <ChevronLeft className="h-4 w-4" />
                     </button>
@@ -332,8 +331,10 @@ export function PeriodsTable({
                                 key={idx}
                                 onClick={() => onPageChange(pageNumber)}
                                 disabled={isLoading}
-                                className={`flex h-8 min-w-[32px] items-center justify-center rounded-md px-2 ${
-                                    isActive ? 'bg-blue-500 text-white' : 'border border-blue-500 bg-white text-blue-500 hover:bg-blue-100'
+                                className={`flex h-8 min-w-[32px] items-center justify-center rounded-md px-2 transition-colors ${
+                                    isActive 
+                                        ? 'bg-primary text-primary-foreground' 
+                                        : 'border border-border bg-background text-foreground hover:bg-muted'
                                 } ${!isVisible ? 'hidden sm:flex' : ''}`}
                             >
                                 {pageNumber}
@@ -344,13 +345,13 @@ export function PeriodsTable({
                     <button
                         onClick={handleNextPage}
                         disabled={pagination.current_page === pagination.last_page || isLoading}
-                        className="flex items-center justify-center rounded-md border border-blue-500 px-2 py-1 text-blue-500 hover:bg-blue-100 disabled:opacity-50"
+                        className="flex items-center justify-center rounded-md border border-border px-2 py-1 text-foreground hover:bg-muted disabled:opacity-50 transition-colors"
                     >
                         <ChevronRight className="h-4 w-4" />
                     </button>
                 </div>
 
-                <div className="text-center text-sm text-gray-500 sm:text-right">
+                <div className="text-center text-sm text-muted-foreground sm:text-right">
                     Showing {(pagination.current_page - 1) * pagination.per_page + 1} to{' '}
                     {Math.min(pagination.current_page * pagination.per_page, pagination.total)} of {pagination.total} entries
                 </div>
