@@ -188,7 +188,19 @@ export default function ViewQuestionPack({ questionPack }: Props) {
                         <TableRow key={question.id}>
                           <TableCell>{index + 1}</TableCell>
                           <TableCell>{question.question_text}</TableCell>
-                          <TableCell>{question.question_type}</TableCell>
+                          <TableCell>
+                            <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
+                              question.question_type === 'essay' 
+                                ? 'bg-blue-100 text-blue-700' 
+                                : question.question_type === 'multiple_choice'
+                                ? 'bg-gray-100 text-gray-700'
+                                : 'bg-gray-100 text-gray-700'
+                            }`}>
+                              {question.question_type === 'essay' ? 'Essay' : 
+                               question.question_type === 'multiple_choice' ? 'Multiple Choice' : 
+                               question.question_type?.replace('_', ' ') || 'Multiple Choice'}
+                            </span>
+                          </TableCell>
                         </TableRow>
                       ))
                     )}

@@ -20,7 +20,9 @@ class UserAnswer extends Model
         'question_id',
         'choice_id',
         'application_id',
-        'answered_at'
+        'answered_at',
+        'answer_text',
+        'score'
     ];
 
     /**
@@ -30,6 +32,7 @@ class UserAnswer extends Model
      */
     protected $casts = [
         'answered_at' => 'datetime',
+        'score' => 'decimal:2',
     ];
 
     /**

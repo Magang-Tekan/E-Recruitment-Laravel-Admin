@@ -24,15 +24,27 @@ class QuestionSeeder extends Seeder
             ],
             [
                 'question_text' => '5 + 3 × 2 = ?',
-                'question_type' => 'arithmetic'
+                'question_type' => 'multiple_choice'
             ],
             [
                 'question_text' => 'Jika harga sebuah barang naik 20% dan kemudian turun 20%, maka harga akhirnya dibandingkan dengan harga awal adalah...',
-                'question_type' => 'logical'
+                'question_type' => 'multiple_choice'
             ],
             [
                 'question_text' => 'Apa kepanjangan dari HTML?',
-                'question_type' => 'knowledge'
+                'question_type' => 'multiple_choice'
+            ],
+            [
+                'question_text' => 'Jelaskan pengalaman Anda dalam bekerja dengan tim dan bagaimana Anda berkontribusi untuk mencapai tujuan tim.',
+                'question_type' => 'essay'
+            ],
+            [
+                'question_text' => 'Ceritakan tentang proyek yang paling menantang yang pernah Anda kerjakan dan bagaimana Anda mengatasinya.',
+                'question_type' => 'essay'
+            ],
+            [
+                'question_text' => 'Apa yang menjadi motivasi utama Anda dalam bekerja? Jelaskan dengan singkat.',
+                'question_type' => 'essay'
             ]
         ];
 
@@ -81,19 +93,36 @@ class QuestionSeeder extends Seeder
                     ['choice_text' => 'Hyper Transfer Markup Language', 'is_correct' => false],
                     ['choice_text' => 'Home Tool Markup Language', 'is_correct' => false],
                 ]
+            ],
+            // Essay questions (no choices needed)
+            [
+                'question' => $questions[5],
+                'choices' => []
+            ],
+            [
+                'question' => $questions[6],
+                'choices' => []
+            ],
+            [
+                'question' => $questions[7],
+                'choices' => []
             ]
         ];
 
         foreach ($questionsWithChoices as $item) {
             $questionModel = Question::create($item['question']);
             
-            foreach ($item['choices'] as $choiceData) {
-                Choice::create([
-                    'question_id' => $questionModel->id,
-                    'choice_text' => $choiceData['choice_text'],
-                    'is_correct' => $choiceData['is_correct'],
-                ]);
+            // Only create choices for multiple choice questions
+            if ($questionModel->question_type === 'multiple_choice' && !empty($item['choices'])) {
+                foreach ($item['choices'] as $choiceData) {
+                    Choice::create([
+                        'question_id' => $questionModel->id,
+                        'choice_text' => $choiceData['choice_text'],
+                        'is_correct' => $choiceData['is_correct'],
+                    ]);
+                }
             }
+            // Essay questions don't have choices
         }
     }
 }

@@ -1521,22 +1521,28 @@ class ApplicationStageController extends Controller
                         'score' => $assessmentScore,
                         'answers' => $application->userAnswers->count() > 0 
                             ? $application->userAnswers->map(fn($answer) => [
+                                'id' => $answer->id,
+                                'question_id' => $answer->question_id,
                                 'question' => [
                                     'text' => $answer->question->question_text,
+                                    'type' => $answer->question->question_type ?? 'multiple_choice',
                                     'choices' => $answer->question->choices->map(fn($choice) => [
                                         'text' => $choice->choice_text,
                                         'is_correct' => $choice->is_correct,
                                     ]),
                                 ],
                                 'selected_answer' => [
-                                    'text' => $answer->choice?->choice_text ?? 'No answer selected',
+                                    'text' => $answer->choice?->choice_text ?? ($answer->answer_text ?? 'No answer selected'),
                                     'is_correct' => $answer->choice?->is_correct ?? false,
                                 ],
+                                'answer_text' => $answer->answer_text,
+                                'score' => $answer->score,
                             ])
                             : [
                                 [
                                     'question' => [
                                         'text' => 'No questions answered yet',
+                                        'type' => 'multiple_choice',
                                         'choices' => [],
                                     ],
                                     'selected_answer' => [
@@ -2593,6 +2599,52 @@ class ApplicationStageController extends Controller
     }
 
     /**
+     * Update manual score for essay question
+     */
+    public function updateEssayScore(Request $request, $id)
+    {
+        $request->validate([
+            'answer_id' => 'required|exists:user_answers,id',
+            'score' => 'required|numeric|min:0|max:100',
+        ]);
+
+        $application = Application::findOrFail($id);
+        
+        // Verify the answer belongs to this application
+        $userAnswer = $application->userAnswers()->findOrFail($request->answer_id);
+        
+        // Verify it's an essay question
+        $question = $userAnswer->question;
+        if ($question->question_type !== 'essay') {
+            return back()->withErrors(['error' => 'This is not an essay question']);
+        }
+
+        // Update the score
+        $userAnswer->update([
+            'score' => $request->score,
+        ]);
+
+        // Recalculate total score
+        $calculatedScore = $this->calculateTestScore($application);
+        
+        // Update the current assessment history with the recalculated score
+        $currentAssessmentHistory = $application->history()
+            ->where('is_active', true)
+            ->whereHas('status', function($q) {
+                $q->where('code', 'psychotest');
+            })
+            ->first();
+
+        if ($currentAssessmentHistory && $calculatedScore !== null) {
+            $currentAssessmentHistory->update([
+                'score' => $calculatedScore,
+            ]);
+        }
+
+        return back()->with('success', 'Essay score updated successfully');
+    }
+
+    /**
      * Display the specified assessment detail (legacy method from AssessmentController)
      */
     public function show(string $id): Response
@@ -2777,6 +2829,9 @@ class ApplicationStageController extends Controller
     /**
      * Calculate score for psychological test (returns null for manual scoring)
      * Calculate score for technical test (returns calculated score)
+     * For non-psychological tests:
+     * - Multiple choice: automatic scoring
+     * - Essay: requires manual scoring per question
      */
     private function calculateTestScore($application): ?float
     {
@@ -2786,18 +2841,65 @@ class ApplicationStageController extends Controller
             return null;
         }
         
-        // For technical/other tests, calculate score normally
-        $userAnswers = $application->userAnswers()->with('choice')->get();
+        // For technical/other tests, calculate score
+        $userAnswers = $application->userAnswers()
+            ->with(['choice', 'question'])
+            ->get();
+            
         if ($userAnswers->isEmpty()) {
             return 0;
         }
         
-        $correctAnswers = $userAnswers->filter(function($answer) {
-            return $answer->choice && $answer->choice?->is_correct ?? false;
-        })->count();
+        // Separate multiple choice and essay answers
+        $multipleChoiceAnswers = $userAnswers->filter(function($answer) {
+            return $answer->question && $answer->question->question_type === 'multiple_choice';
+        });
         
-        $totalAnswers = $userAnswers->count();
-        return round(($correctAnswers / $totalAnswers) * 100, 2);
+        $essayAnswers = $userAnswers->filter(function($answer) {
+            return $answer->question && $answer->question->question_type === 'essay';
+        });
+        
+        // Calculate multiple choice score (automatic)
+        $multipleChoiceScore = 0;
+        if ($multipleChoiceAnswers->count() > 0) {
+            $correctMultipleChoice = $multipleChoiceAnswers->filter(function($answer) {
+                return $answer->choice && $answer->choice?->is_correct ?? false;
+            })->count();
+            $multipleChoiceScore = ($correctMultipleChoice / $multipleChoiceAnswers->count()) * 100;
+        }
+        
+        // Check if all essay answers have manual scores
+        $essayScores = $essayAnswers->pluck('score')->filter(function($score) {
+            return $score !== null;
+        });
+        
+        // If there are essay questions but not all have scores, return null (need manual scoring)
+        if ($essayAnswers->count() > 0 && $essayScores->count() < $essayAnswers->count()) {
+            return null; // Need manual scoring for essay questions
+        }
+        
+        // Calculate essay score (from manual scores)
+        $essayScore = 0;
+        if ($essayAnswers->count() > 0) {
+            $totalEssayScore = $essayAnswers->sum('score');
+            $essayScore = ($totalEssayScore / $essayAnswers->count());
+        }
+        
+        // Calculate weighted average
+        $totalQuestions = $userAnswers->count();
+        if ($totalQuestions === 0) {
+            return 0;
+        }
+        
+        $totalScore = 0;
+        if ($multipleChoiceAnswers->count() > 0) {
+            $totalScore += ($multipleChoiceScore * $multipleChoiceAnswers->count());
+        }
+        if ($essayAnswers->count() > 0) {
+            $totalScore += ($essayScore * $essayAnswers->count());
+        }
+        
+        return round($totalScore / $totalQuestions, 2);
     }
 
     /**

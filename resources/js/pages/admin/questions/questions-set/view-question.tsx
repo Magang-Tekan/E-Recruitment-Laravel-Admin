@@ -114,32 +114,43 @@ export default function ViewQuestion({ question }: Props) {
               <p className="text-gray-800 text-lg">{question.question_text}</p>
             </div>
 
-            <div>
-              <h3 className="text-lg font-medium mb-3">Options</h3>
-              <div className="space-y-2">
-                {question.options.map((option, index) => (
-                  <div 
-                    key={index} 
-                    className={`p-3 rounded-lg border ${
-                      option === question.correct_answer 
-                        ? 'border-green-500 bg-green-50' 
-                        : 'border-gray-200 hover:bg-gray-50'
-                    }`}
-                  >
-                    <div className="flex items-center">
-                      <div className={`flex-shrink-0 h-6 w-6 rounded-full flex items-center justify-center mr-3 
-                        ${option === question.correct_answer ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-700'}`}>
-                        {String.fromCharCode(65 + index)}
+            {question.question_type === 'multiple_choice' && question.options && question.options.length > 0 && (
+              <div>
+                <h3 className="text-lg font-medium mb-3">Options</h3>
+                <div className="space-y-2">
+                  {question.options.map((option, index) => (
+                    <div 
+                      key={index} 
+                      className={`p-3 rounded-lg border ${
+                        option === question.correct_answer 
+                          ? 'border-green-500 bg-green-50' 
+                          : 'border-gray-200 hover:bg-gray-50'
+                      }`}
+                    >
+                      <div className="flex items-center">
+                        <div className={`flex-shrink-0 h-6 w-6 rounded-full flex items-center justify-center mr-3 
+                          ${option === question.correct_answer ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-700'}`}>
+                          {String.fromCharCode(65 + index)}
+                        </div>
+                        <span>{option}</span>
+                        {option === question.correct_answer && (
+                          <span className="ml-auto text-green-600 text-sm font-medium">Correct Answer</span>
+                        )}
                       </div>
-                      <span>{option}</span>
-                      {option === question.correct_answer && (
-                        <span className="ml-auto text-green-600 text-sm font-medium">Correct Answer</span>
-                      )}
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
+
+            {question.question_type === 'essay' && (
+              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <h3 className="text-lg font-medium mb-2 text-blue-800">Essay Question</h3>
+                <p className="text-blue-700 text-sm">
+                  This is an essay question. Candidates will provide a written answer when taking the test.
+                </p>
+              </div>
+            )}
 
             <div>
               <h3 className="text-lg font-medium">Question Type</h3>
