@@ -94,7 +94,6 @@ export default function CreateJob({ companies, departments, majors, questionPack
                 router.visit(route('admin.jobs.index'));
             },
             onError: (errors) => {
-                console.error('Job creation failed:', errors);
             }
         });
     };

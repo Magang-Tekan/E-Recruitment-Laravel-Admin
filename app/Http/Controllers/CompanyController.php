@@ -386,11 +386,6 @@ class CompanyController extends Controller
             return redirect()->route('company-management.index')
                 ->with('success', 'Company created successfully!');
         } catch (\Exception $e) {
-            Log::error('Error creating company:', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-            
             return redirect()->back()
                 ->withInput()
                 ->with('error', 'Failed to create company. Please try again.');
@@ -419,31 +414,12 @@ class CompanyController extends Controller
 
     public function update(UpdateCompanyRequest $request, Company $company)
     {
-        // Debug: Log request details
-        Log::info('Company Update Debug:', [
-            'method' => $request->method(),
-            'has_file_logo' => $request->hasFile('logo'),
-            'all_data' => $request->all(),
-            'all_files' => $request->allFiles(),
-            'content_type' => $request->header('Content-Type'),
-            'logo_file_details' => $request->hasFile('logo') ? [
-                'name' => $request->file('logo')->getClientOriginalName(),
-                'size' => $request->file('logo')->getSize(),
-                'mime' => $request->file('logo')->getMimeType(),
-            ] : null,
-        ]);
-        
         try {
             $this->companyService->update($company, $request);
             
             return redirect()->route('company-management.index')
                 ->with('success', 'Company updated successfully!');
         } catch (\Exception $e) {
-            Log::error('Error updating company:', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-            
             return redirect()->back()
                 ->withInput()
                 ->with('error', 'Failed to update company. Please try again.');
@@ -458,11 +434,6 @@ class CompanyController extends Controller
             return redirect()->route('company-management.index')
                 ->with('success', 'Company deleted successfully.');
         } catch (\Exception $e) {
-            Log::error('Error deleting company:', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-            
             return redirect()->back()
                 ->with('error', 'Failed to delete company. Please try again.');
         }
@@ -470,12 +441,6 @@ class CompanyController extends Controller
 
     public function periods(Company $company, Request $request)
     {
-        // Debug: Log the received company
-        Log::info('Company periods request', [
-            'company_name' => $company->name,
-            'company_id' => $company->id
-        ]);
-        
         // For company periods, we don't use pagination parameters
         // Always return all periods for the company
         
@@ -499,11 +464,6 @@ class CompanyController extends Controller
             ->where('vacancies.company_id', $company->id)
             ->groupBy('vacancy_periods.period_id')
             ->pluck('total', 'period_id');
-        
-        Log::info('Found periods for company', [
-            'periods_count' => $periods->count(),
-            'company_id' => $company->id
-        ]);
         
         // Get current date for status checking
         $now = \Carbon\Carbon::now();
@@ -570,11 +530,6 @@ class CompanyController extends Controller
                     'department' => $vacancy->department ? $vacancy->department->name : 'Unknown',
                 ];
             });
-        
-        Log::info('Found vacancies for company', [
-            'vacancies_count' => $vacancies->count(),
-            'company_id' => $company->id
-        ]);
         
         return Inertia::render('admin/periods/index', [
             'periods' => $periodsData->toArray(),

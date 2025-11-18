@@ -44,7 +44,6 @@ class HandleInertiaRequests extends Middleware
         
         // Debug logging for middleware (remove in production)
         // if ($user) {
-        //     Log::info('HandleInertiaRequests - Sharing user data:', [
         //         'id' => $user->id,
         //         'name' => $user->name,
         //         'email' => $user->email,

@@ -77,7 +77,6 @@ export default function QuestionSet({ questions = [] }: Props) {
         // Success message will be shown by the backend flash message
       },
       onError: (errors) => {
-        console.error('Error deleting question:', errors);
         setIsLoading(false);
         alert('Failed to delete the question. Please try again.');
       },

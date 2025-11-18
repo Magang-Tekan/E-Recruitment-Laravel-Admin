@@ -48,7 +48,6 @@ export default function Administration({ candidates, filters, companyInfo, perio
         try {
             return format(new Date(date), 'dd/MM/yyyy HH:mm');
         } catch (error) {
-            console.error('Error formatting date:', error);
             return '-';
         }
     };
@@ -68,25 +67,9 @@ export default function Administration({ candidates, filters, companyInfo, perio
     };
 
     const getReviewStatus = (candidate: ApplicationInfo) => {
-        // Debug semua data candidate untuk Candidate User 2
-        if (candidate.user.name === 'Candidate User 2') {
-            console.log('🔍 FULL CANDIDATE DATA:', candidate);
-            console.log('🔍 Score value:', candidate.score, typeof candidate.score);
-            console.log('🔍 Reviewed by:', candidate.reviewed_by, typeof candidate.reviewed_by);
-        }
-        
         // Cek score dengan berbagai kemungkinan nilai
         const hasScore = candidate.score != null && String(candidate.score).trim() !== '' && !Number.isNaN(Number(candidate.score as any));
         const hasReviewer = candidate.reviewed_by != null && String(candidate.reviewed_by).trim() !== '';
-        
-        console.log('🎯 Review Status Logic:', {
-            name: candidate.user.name,
-            hasScore,
-            hasReviewer,
-            scoreValue: candidate.score,
-            reviewerValue: candidate.reviewed_by,
-            result: hasScore || hasReviewer ? 'REVIEWED' : 'PENDING'
-        });
         
         if (hasScore || hasReviewer) {
             return { status: 'reviewed', icon: CheckCircle, color: 'bg-green-100 text-green-800 border-green-200' };

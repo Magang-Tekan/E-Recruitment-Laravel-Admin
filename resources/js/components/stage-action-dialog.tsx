@@ -122,7 +122,6 @@ export default function StageActionDialog({ isOpen, onClose, applicationId, stag
                 onError: (errors) => {
                     setIsSubmitting(false);
                     setError('Failed to process the final decision. Please try again.');
-                    console.error('Final decision error:', errors);
                 }
             });
         } else {
@@ -136,14 +135,6 @@ export default function StageActionDialog({ isOpen, onClose, applicationId, stag
                 scheduled_at: (stage === 'psychological_test' || stage === 'assessment') && action === 'accept' ? scheduledAt : null,
             };
             
-            console.log('🔍 StageActionDialog Debug:', {
-                url,
-                data,
-                stage,
-                action,
-                applicationId
-            });
-            
             router.post(url, data, {
                 preserveState: false,
                 preserveScroll: false,
@@ -153,14 +144,6 @@ export default function StageActionDialog({ isOpen, onClose, applicationId, stag
                 },
                 onError: (errors) => {
                     setIsSubmitting(false);
-                    console.error('🔴 Stage action error:', {
-                        errors,
-                        stage,
-                        action,
-                        applicationId,
-                        url,
-                        data
-                    });
                     setError('Failed to process the application. Please try again.');
                 }
             });

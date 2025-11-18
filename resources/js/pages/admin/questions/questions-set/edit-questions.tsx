@@ -149,7 +149,6 @@ export default function EditQuestionPage({ question }: Props) {
         router.visit('/dashboard/questions/questions-set');
       },
       onError: (errors) => {
-        console.error('Error updating question:', errors);
         setIsSubmitting(false);
         alert('Failed to update the question. Please check the form and try again.');
       }

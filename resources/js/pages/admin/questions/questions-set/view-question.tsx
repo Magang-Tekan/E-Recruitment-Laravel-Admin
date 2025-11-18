@@ -61,7 +61,6 @@ export default function ViewQuestion({ question }: Props) {
         },
         onError: (errors) => {
           setIsDeleting(false);
-          console.error('Error deleting question:', errors);
           alert('Failed to delete the question. Please try again.');
         }
       });

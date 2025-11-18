@@ -116,7 +116,6 @@ export default function EditJob({ job, companies, departments, majors, questionP
             await router.put(route('admin.jobs.update', { id: job.id }), data);
             router.visit(route('admin.jobs.index'));
         } catch (error) {
-            console.error('Error updating job:', error);
         } finally {
             setIsLoading(false);
         }

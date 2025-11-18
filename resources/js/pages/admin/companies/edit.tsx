@@ -123,11 +123,6 @@ export default function EditCompany({ company }: Props) {
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         
-        // Debug: Log form data before submission
-        console.log('Form data being submitted:', data);
-        console.log('Logo file:', data.logo);
-        console.log('Has logo file:', !!data.logo);
-        
         setProcessing(true);
         
         // For file uploads with PUT, we need to use POST with _method spoofing
@@ -141,7 +136,6 @@ export default function EditCompany({ company }: Props) {
                 setProcessing(false);
             },
             onError: (errors: any) => {
-                console.error('Update failed:', errors);
                 toast.error('Failed to update company. Please try again.');
                 setProcessing(false);
             },

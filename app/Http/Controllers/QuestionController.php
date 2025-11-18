@@ -6,7 +6,6 @@ use App\Models\Question;
 use App\Models\QuestionPack;
 use App\Models\Choice;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
@@ -31,9 +30,6 @@ class QuestionController extends Controller
             
             return $question;
         });
-
-        // Log the questions for debugging
-        Log::info('Questions retrieved for management page:', ['count' => $questions->count()]);
 
         return inertia('admin/questions/questions-set/question-set', [
             'questions' => $questions
@@ -60,8 +56,6 @@ class QuestionController extends Controller
      */
     public function store(Request $request)
     {
-        Log::info('Received question data:', $request->all());
-
         $request->validate([
             'questions' => 'required|array',
             'questions.*.question_text' => 'required|string',
@@ -145,7 +139,6 @@ class QuestionController extends Controller
             return redirect()->route('admin.questions.question-set')->with('success', 'Questions created successfully!');
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error creating questions: ' . $e->getMessage());
             return redirect()->back()->with('error', 'Failed to save questions: ' . $e->getMessage());
         }
     }
@@ -171,7 +164,6 @@ class QuestionController extends Controller
                 'question' => $question
             ]);
         } catch (\Exception $e) {
-            Log::error('Error showing question: ' . $e->getMessage());
             return redirect()->route('admin.questions.question-set')->with('error', 'Question not found.');
         }
     }
@@ -197,7 +189,6 @@ class QuestionController extends Controller
                 'question' => $question
             ]);
         } catch (\Exception $e) {
-            Log::error('Error editing question: ' . $e->getMessage());
             return redirect()->route('admin.questions.question-set')->with('error', 'Question not found.');
         }
     }
@@ -260,7 +251,6 @@ class QuestionController extends Controller
 
             return redirect()->route('admin.questions.question-set')->with('success', 'Question updated successfully!');
         } catch (\Exception $e) {
-            Log::error('Error updating question: ' . $e->getMessage());
             return redirect()->back()->with('error', 'Failed to update question: ' . $e->getMessage());
         }
     }
@@ -281,7 +271,6 @@ class QuestionController extends Controller
 
             return redirect()->route('admin.questions.question-set')->with('success', 'Question deleted successfully!');
         } catch (\Exception $e) {
-            Log::error('Error deleting question: ' . $e->getMessage());
             return redirect()->route('admin.questions.question-set')->with('error', 'Failed to delete question: ' . $e->getMessage());
         }
     }
