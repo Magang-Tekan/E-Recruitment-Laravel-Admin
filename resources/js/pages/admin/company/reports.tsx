@@ -74,16 +74,6 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 export default function Reports({ candidates, filters, companyInfo, periodInfo }: Props) {
     // Enhanced debugging
-    console.log('=== DEBUGGING CANDIDATES DATA ===');
-    console.log('Full candidates object:', candidates);
-    console.log('candidates.data:', candidates.data);
-    console.log('candidates.data.data:', candidates.data.data);
-    console.log('candidates.data.data type:', typeof candidates.data.data);
-    console.log('candidates.data.data isArray:', Array.isArray(candidates.data.data));
-    console.log('candidates.data.data length:', candidates.data.data?.length);
-    console.log('candidates.total:', candidates.total);
-    console.log('Render condition result:', Array.isArray(candidates.data.data) && candidates.data.data.length > 0);
-    console.log('================================');
 
     const [actionDialog, setActionDialog] = useState<{
         isOpen: boolean;

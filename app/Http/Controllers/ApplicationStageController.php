@@ -467,7 +467,6 @@ class ApplicationStageController extends Controller
 
         } catch (\Exception $e) {
             DB::rollback();
-            Log::error('Application stage update failed: ' . $e->getMessage());
             return back()->withErrors(['error' => 'Failed to update application: ' . $e->getMessage()]);
         }
     }
@@ -1003,11 +1002,6 @@ class ApplicationStageController extends Controller
             return $pdf->download($filename);
 
         } catch (\Exception $e) {
-            Log::error('Administration export error: ' . $e->getMessage(), [
-                'id' => $id,
-                'trace' => $e->getTraceAsString()
-            ]);
-            
             return response()->json([
                 'error' => 'Export failed: ' . $e->getMessage()
             ], 500);
@@ -1499,20 +1493,6 @@ class ApplicationStageController extends Controller
             }
         }
 
-        // Debug: Log the data to see what's being sent
-        Log::info('Assessment Detail Data:', [
-            'application_id' => $application->id,
-            'user_answers_count' => $application->userAnswers->count(),
-            'assessment_score' => $assessmentScore,
-            'user_answers' => $application->userAnswers->map(function($answer) {
-                return [
-                    'question_id' => $answer->question_id,
-                    'question_text' => $answer->question->question_text,
-                    'choice_text' => $answer->choice?->choice_text ?? 'No answer selected',
-                    'is_correct' => $answer->choice?->is_correct ?? false,
-                ];
-            })
-        ]);
 
         return Inertia::render('admin/company/assessment-detail', [
             'candidate' => [
@@ -1719,11 +1699,6 @@ class ApplicationStageController extends Controller
                         ]
                     ];
                 } catch (\Exception $e) {
-                    Log::error('Error transforming application data:', [
-                        'application_id' => $application->id,
-                        'error' => $e->getMessage()
-                    ]);
-
                     // Return safe default data
                     return [
                         'id' => $application->id,
@@ -1812,11 +1787,6 @@ class ApplicationStageController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Error in reports method:', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-
             return Inertia::render('admin/company/reports', [
                 'candidates' => [
                     'data' => [],
@@ -2036,8 +2006,6 @@ class ApplicationStageController extends Controller
             
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Report action error: ' . $e->getMessage());
-            
             return back()->withErrors(['error' => 'Failed to process final decision: ' . $e->getMessage()]);
         }
     }
@@ -2555,7 +2523,6 @@ class ApplicationStageController extends Controller
             
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Stage action error: ' . $e->getMessage());
             
             return back()->withErrors(['error' => 'Failed to process application: ' . $e->getMessage()]);
         }
@@ -3014,12 +2981,6 @@ class ApplicationStageController extends Controller
             throw new \Exception('Invalid export format');
 
         } catch (\Exception $e) {
-            Log::error('Export error: ' . $e->getMessage(), [
-                'id' => $id,
-                'format' => $request->input('format'),
-                'trace' => $e->getTraceAsString()
-            ]);
-            
             return response()->json([
                 'error' => 'Export failed: ' . $e->getMessage()
             ], 500);
@@ -3031,8 +2992,6 @@ class ApplicationStageController extends Controller
      */
     private function exportPsychologicalTestToPdf($application)
     {
-        Log::info('PDF export started', ['application_id' => $application->id]);
-
         // Get current psychological test history with reviewer information
         $currentHistory = $application->history()
             ->whereHas('status', function($q) {
@@ -3041,11 +3000,6 @@ class ApplicationStageController extends Controller
             ->with(['reviewer'])
             ->orderBy('processed_at', 'desc')
             ->first();
-
-        Log::info('History loaded', [
-            'has_history' => !is_null($currentHistory),
-            'reviewer_name' => $currentHistory?->reviewer?->name
-        ]);
 
         $data = [
             'application' => $application,
@@ -3077,14 +3031,7 @@ class ApplicationStageController extends Controller
             'status' => $currentHistory?->completed_at ? 'Completed' : 'In Progress',
         ];
 
-        Log::info('Data prepared for PDF', [
-            'answers_count' => $data['answers']->count(),
-            'has_manual_score' => !is_null($data['manual_score']),
-            'candidate_name' => $data['candidate']['name']
-        ]);
-
         try {
-            Log::info('Loading PDF view');
             $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('exports.psychological-test-answers', $data);
             $pdf->setPaper('A4', 'portrait');
 
@@ -3092,14 +3039,8 @@ class ApplicationStageController extends Controller
                        str_replace(' ', '_', $application->user->name) . '_' . 
                        date('Y-m-d_H-i-s') . '.pdf';
 
-            Log::info('PDF generated successfully', ['filename' => $filename]);
-
             return $pdf->download($filename);
         } catch (\Exception $e) {
-            Log::error('PDF generation failed', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
             throw $e;
         }
     }
@@ -3281,7 +3222,6 @@ class ApplicationStageController extends Controller
 
         } catch (\Exception $e) {
             DB::rollback();
-            Log::error('Update psychological test score failed: ' . $e->getMessage());
             return back()->withErrors(['error' => 'Failed to update psychological test score: ' . $e->getMessage()]);
         }
     }

@@ -82,8 +82,7 @@ const formatSimpleDate = (dateString: string) => {
         }
         
         return dateString;
-    } catch (error) {
-        console.error('Error formatting date:', error);
+        } catch (error) {
         return dateString;
     }
 };

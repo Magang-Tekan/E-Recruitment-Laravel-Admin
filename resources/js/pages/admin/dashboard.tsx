@@ -126,13 +126,6 @@ export default function Dashboard({
         const validationError = validateData();
         if (validationError) {
             setError(validationError);
-            console.error('Dashboard Data Validation Error:', {
-                dashboardStats,
-                recruitmentStageData,
-                weeklyData,
-                recentActivities,
-                topPositions
-            });
         } else {
             setError(null);
         }

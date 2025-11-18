@@ -59,16 +59,6 @@ export default function Assessment({ candidates, filters, companyInfo, periodInf
             h.status_code === 'psychological_test'
         );
         
-        // Debug untuk melihat data user baru
-        if (candidate.user.name !== 'userbiasa') {
-            console.log(`🔍 Review Status Debug for ${candidate.user.name}:`, {
-                assessmentHistory,
-                completed_at: assessmentHistory?.completed_at,
-                score: assessmentHistory?.score,
-                reviewer_name: assessmentHistory?.reviewer_name,
-                processed_at: assessmentHistory?.processed_at
-            });
-        }
         
         // Check if assessment test is completed (candidate has taken the test)
         const testCompleted = assessmentHistory?.completed_at !== null && assessmentHistory?.completed_at !== undefined;
@@ -271,14 +261,6 @@ export default function Assessment({ candidates, filters, companyInfo, periodInf
                                                     h.status_code === 'psychological_test'
                                                 );
                                                 
-                                                // Temporary debug for userbiasa
-                                                if (candidate.user.name === 'userbiasa') {
-                                                    console.log('🔍 Assessment History for userbiasa:', {
-                                                        assessmentHistory,
-                                                        processed_at: assessmentHistory?.processed_at,
-                                                        completed_at: assessmentHistory?.completed_at
-                                                    });
-                                                }
                                                 
                                                 const startedAt = assessmentHistory?.processed_at;
                                                 const completedAt = assessmentHistory?.completed_at;

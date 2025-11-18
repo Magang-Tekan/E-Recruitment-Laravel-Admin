@@ -164,7 +164,6 @@ export default function AddQuestionsPage({ questionPack }: Props) {
         router.visit('/dashboard/questions/questions-set');
       },
       onError: (errors) => {
-        console.error('Error saving questions:', errors);
         setIsSubmitting(false);
         alert('Failed to save questions. Please check your input and try again.');
       }

@@ -80,11 +80,6 @@ export default function CreateCompany() {
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         
-        // Debug: Log form data before submission
-        console.log('Form data being submitted (create):', data);
-        console.log('Logo file:', data.logo);
-        console.log('Has logo file:', !!data.logo);
-        
         // Validate name is not empty
         if (!data.name || data.name.trim() === '') {
             toast.error('Company name is required and cannot be empty');
@@ -97,7 +92,6 @@ export default function CreateCompany() {
                 router.get(route('company-management.index'));
             },
             onError: (errors) => {
-                console.error('Create failed:', errors);
                 toast.error('Failed to create company. Please try again.');
             },
             onFinish: () => {

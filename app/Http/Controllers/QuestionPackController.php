@@ -7,7 +7,6 @@ use App\Models\QuestionPack;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Log;
 
 class QuestionPackController extends Controller
 {
@@ -18,11 +17,6 @@ class QuestionPackController extends Controller
     {
         // Load question packs with their descriptions, test types, durations, and question counts
         $questionPacks = QuestionPack::withCount('questions')->get();
-
-        Log::info('Retrieved question packs:', [
-            'count' => $questionPacks->count(),
-            'packs' => $questionPacks->toArray()
-        ]);
 
         return Inertia::render('admin/questions/questions-packs/question-packs', [
             'questionPacks' => $questionPacks
@@ -48,8 +42,6 @@ class QuestionPackController extends Controller
 
     public function store(Request $request)
     {
-        Log::info('QuestionPack data received:', $request->all());
-
         // Validate the request
         $validated = $request->validate([
             'pack_name' => 'required|string|max:255',
@@ -74,14 +66,6 @@ class QuestionPackController extends Controller
         // Calculate total minutes - this is what we'll store
         $duration = ($hours * 60) + $minutes + ($seconds / 60);
         
-        Log::info('Duration processing:', [
-            'raw_input' => $durationStr,
-            'hours' => $hours,
-            'minutes' => $minutes,
-            'seconds' => $seconds,
-            'total_minutes' => $duration
-        ]);
-
         // Create the question pack with the validated duration
         $questionPack = QuestionPack::create([
             'pack_name' => $validated['pack_name'],
@@ -94,31 +78,18 @@ class QuestionPackController extends Controller
             'status' => 'active',
         ]);
 
-        Log::info('QuestionPack created with duration:', [
-            'id' => $questionPack->id,
-            'duration' => $questionPack->duration
-        ]);
-
         // Handle question IDs - look for them directly in both validated data and request
         $questionIds = $validated['question_ids'] ?? $request->input('question_ids', []);
-        Log::info('Raw question_ids received:', ['question_ids' => $questionIds]);
 
         if (!empty($questionIds)) {
             // Ensure question_ids is an array and contains valid IDs
             if (is_array($questionIds)) {
-                Log::info('Attaching questions:', ['question_ids' => $questionIds]);
-
                 try {
                     $questionPack->questions()->attach($questionIds);
-                    Log::info('Questions attached successfully:', ['count' => count($questionIds)]);
                 } catch (\Exception $e) {
-                    Log::error('Error attaching questions:', ['error' => $e->getMessage()]);
+                    // Error attaching questions
                 }
-            } else {
-                Log::warning('question_ids is not an array:', ['type' => gettype($questionIds)]);
             }
-        } else {
-            Log::info('No question_ids provided for attachment');
         }
 
         return redirect()->route('admin.questionpacks.index')->with('success', 'Question pack created successfully!');
@@ -139,17 +110,6 @@ class QuestionPackController extends Controller
         if ($questionpack->closes_at) {
             $questionpackData['closes_at'] = $questionpack->closes_at->format('Y-m-d\TH:i:s');
         }
-
-        Log::info('QuestionPack show data:', [
-            'id' => $questionpack->id,
-            'pack_name' => $questionpack->pack_name,
-            'duration' => $questionpack->duration,
-            'opens_at' => $questionpack->opens_at,
-            'closes_at' => $questionpack->closes_at,
-            'opens_at_formatted' => $questionpack->opens_at ? $questionpack->opens_at->format('Y-m-d H:i:s') : null,
-            'closes_at_formatted' => $questionpack->closes_at ? $questionpack->closes_at->format('Y-m-d H:i:s') : null,
-            'questions_count' => $questionpack->questions->count()
-        ]);
 
         return inertia('admin/questions/questions-packs/view-question-pack', [
             'questionPack' => $questionpackData

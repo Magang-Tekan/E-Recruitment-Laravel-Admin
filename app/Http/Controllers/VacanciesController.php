@@ -49,17 +49,6 @@ class VacanciesController extends Controller
         $educationLevels = EducationLevel::orderBy('name')->get();
         $vacancyTypes = VacancyType::select('id', 'name')->orderBy('name')->get();
 
-        // Log data untuk debugging
-        Log::info('Jobs Management Data:', [
-            'vacancies_count' => $vacancies->count(),
-            'companies_count' => $companies->count(),
-            'departments_count' => $departments->count(),
-            'majors_count' => $majors->count(),
-            'questionPacks_count' => $questionPacks->count(),
-            'educationLevels_count' => $educationLevels->count(),
-            'vacancyTypes_count' => $vacancyTypes->count(),
-        ]);
-
         return Inertia::render('admin/jobs/jobs-management', [
             'vacancies' => $vacancies->map(function ($vacancy) {
                 return [
@@ -124,9 +113,6 @@ class VacanciesController extends Controller
 
     public function create(Request $request)
     {
-        // Log incoming request data
-        Log::info('Job creation request data: ', $request->all());
-        
         try {
             $validated = $request->validate([
                 'title' => 'required|string|max:255',
@@ -149,10 +135,7 @@ class VacanciesController extends Controller
                 'psychotest_name' => 'nullable|string|max:255',
             ]);
             
-            Log::info('Validation passed, validated data: ', $validated);
         } catch (\Illuminate\Validation\ValidationException $e) {
-            Log::error('Job creation validation failed: ', $e->errors());
-            
             // Handle Inertia requests
             if ($request->header('X-Inertia')) {
                 return back()->withErrors($e->errors())->withInput();
@@ -185,8 +168,6 @@ class VacanciesController extends Controller
                 'psychotest_name' => $validated['psychotest_name'] ?? 'Tes Psikologi',
             ];
             
-            Log::info('Data to be created: ', $createData);
-            
             $job = Vacancies::create($createData);
 
             // Sync majors (many-to-many relationship)
@@ -208,8 +189,6 @@ class VacanciesController extends Controller
             // Load the relationships
             $job->load(['company', 'department', 'major', 'majors', 'questionPack', 'educationLevel', 'vacancyType']);
             
-            Log::info('Job created successfully with ID: ' . $job->id);
-            
             // Handle Inertia requests
             if ($request->header('X-Inertia')) {
                 return redirect()->route('admin.jobs.index')->with('success', 'Job created successfully');
@@ -220,9 +199,6 @@ class VacanciesController extends Controller
                 'job' => $job,
             ], 201);
         } catch (\Exception $e) {
-            Log::error('Error creating job: ' . $e->getMessage());
-            Log::error('Stack trace: ' . $e->getTraceAsString());
-            
             // Handle Inertia requests
             if ($request->header('X-Inertia')) {
                 return back()->withErrors(['error' => 'Error creating job: ' . $e->getMessage()])->withInput();
@@ -238,10 +214,6 @@ class VacanciesController extends Controller
     public function update(Request $request, $id)
     {
         $job = Vacancies::findOrFail($id);
-        
-        // Log incoming request data for debugging
-        Log::info('Job update request data: ', $request->all());
-        Log::info('Current job data before update: ', $job->toArray());
         
         try {
             $validated = $request->validate([
@@ -265,10 +237,7 @@ class VacanciesController extends Controller
                 'psychotest_name' => 'nullable|string|max:255',
             ]);
             
-            Log::info('Validation passed, validated data: ', $validated);
         } catch (\Illuminate\Validation\ValidationException $e) {
-            Log::error('Job update validation failed: ', $e->errors());
-            
             // Handle Inertia requests
             if ($request->header('X-Inertia')) {
                 return back()->withErrors($e->errors())->withInput();
@@ -297,8 +266,6 @@ class VacanciesController extends Controller
                 'psychotest_name' => $validated['psychotest_name'] ?? 'Tes Psikologi',
             ];
             
-            Log::info('Data to be updated: ', $updateData);
-            
             $job->update($updateData);
 
             // Sync majors (many-to-many relationship)
@@ -315,8 +282,6 @@ class VacanciesController extends Controller
             // Load the fresh model with relationships
             $job = $job->fresh(['company', 'department', 'major', 'majors', 'questionPack', 'educationLevel', 'vacancyType']);
             
-            Log::info('Job updated successfully, fresh data: ', $job->toArray());
-
             // Handle Inertia requests
             if ($request->header('X-Inertia')) {
                 return redirect()->route('admin.jobs.index')->with('success', 'Job updated successfully');
@@ -327,9 +292,6 @@ class VacanciesController extends Controller
                 'job' => $job,
             ]);
         } catch (\Exception $e) {
-            Log::error('Error updating job: ' . $e->getMessage());
-            Log::error('Stack trace: ' . $e->getTraceAsString());
-            
             // Handle Inertia requests
             if ($request->header('X-Inertia')) {
                 return back()->withErrors(['error' => 'Error updating job: ' . $e->getMessage()])->withInput();
@@ -357,8 +319,6 @@ class VacanciesController extends Controller
                 'message' => 'Job deleted successfully',
             ]);
         } catch (\Exception $e) {
-            Log::error('Error deleting job: ' . $e->getMessage());
-            
             // Handle Inertia requests
             if (request()->header('X-Inertia')) {
                 return back()->withErrors(['error' => 'Error deleting job: ' . $e->getMessage()]);

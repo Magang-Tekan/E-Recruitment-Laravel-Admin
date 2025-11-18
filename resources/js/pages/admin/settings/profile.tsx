@@ -30,10 +30,6 @@ export default function Profile({ mustVerifyEmail, status, user }: { mustVerifyE
     // Use explicitly passed user data if available, otherwise fall back to auth.user
     const currentUser = user || auth.user;
     
-    // Debug logging (remove in production)
-    // console.log('Profile Page - Auth User:', auth.user);
-    // console.log('Profile Page - Passed User:', user);
-    // console.log('Profile Page - Current User:', currentUser);
 
     const { data, setData, patch, errors, processing, recentlySuccessful } = useForm<Required<ProfileForm>>({
         name: currentUser.name,

@@ -244,7 +244,6 @@ class PeriodController extends Controller
             // Default web fallback
             return redirect()->back()->with('success', 'Period created successfully');
         } catch (\Exception $e) {
-            Log::error('Failed to create period', [ 'error' => $e->getMessage() ]);
             if ($request->header('X-Inertia')) {
                 return redirect()->back()->with('error', 'Failed to create period')
                     ->withErrors(['error' => 'An error occurred while creating the period']);
@@ -500,7 +499,6 @@ class PeriodController extends Controller
             }
             return redirect()->back()->with('success', 'Period updated successfully');
         } catch (\Exception $e) {
-            Log::error('Failed to update period', [ 'period_id' => $period->id, 'error' => $e->getMessage() ]);
             if ($request->header('X-Inertia')) {
                 return redirect()->back()->with('error', 'Failed to update period')
                     ->withErrors(['error' => 'An error occurred while updating the period']);
@@ -664,21 +662,6 @@ class PeriodController extends Controller
             $requestedCompanyId = $request->query('company');
             
             // Log for debugging
-            Log::info('getPeriodWithCompany called', [
-                'period_id' => $id,
-                'requested_company_id' => $requestedCompanyId,
-                'period_name' => $period->name,
-                'period_has_direct_company' => $period->company ? true : false,
-                'vacancies_companies' => $period->vacancies->map(function($vacancy) {
-                    return [
-                        'vacancy_id' => $vacancy->id,
-                        'vacancy_title' => $vacancy->title,
-                        'company_id' => $vacancy->company ? $vacancy->company->id : null,
-                        'company_name' => $vacancy->company ? $vacancy->company->name : null,
-                    ];
-                })->toArray()
-            ]);
-            
             $company = null;
             
             // If a specific company ID is requested, find that company
@@ -691,9 +674,6 @@ class PeriodController extends Controller
                 
                 if ($requestedCompany) {
                     $company = $requestedCompany;
-                    Log::info('Found requested company', ['company_id' => $company->id, 'company_name' => $company->name]);
-                } else {
-                    Log::warning('Requested company not found in period vacancies', ['requested_company_id' => $requestedCompanyId]);
                 }
             }
             
@@ -702,12 +682,10 @@ class PeriodController extends Controller
                 // If period has a direct company relationship, use that
                 if ($period->company) {
                     $company = $period->company;
-                    Log::info('Using period direct company', ['company_id' => $company->id, 'company_name' => $company->name]);
                 } 
                 // Otherwise, try to get a company from the first vacancy
                 else if ($period->vacancies->isNotEmpty() && $period->vacancies->first()->company) {
                     $company = $period->vacancies->first()->company;
-                    Log::info('Using first vacancy company as fallback', ['company_id' => $company->id, 'company_name' => $company->name]);
                 }
             }
             

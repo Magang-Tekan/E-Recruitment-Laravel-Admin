@@ -179,7 +179,6 @@ export default function PeriodsDashboard({
             
             return dateString;
         } catch (error) {
-            console.error('Error formatting date:', error);
             return dateString;
         }
     };
@@ -201,7 +200,6 @@ export default function PeriodsDashboard({
             const date = new Date(dateString);
             return date.toISOString().split('T')[0];
         } catch (error) {
-            console.error('Error formatting date:', error);
             return '';
         }
     };
@@ -298,7 +296,6 @@ export default function PeriodsDashboard({
         (page = 1, itemsPerPage = perPage) => {
             // Skip fetching for company periods - they should already be loaded via props
             if (company?.id) {
-                console.log('Skipping fetchPeriods for company periods - using props data');
                 return;
             }
             
@@ -410,7 +407,6 @@ export default function PeriodsDashboard({
                 }
             })
             .catch(error => {
-                console.error('Error fetching vacancies:', error);
                 // Set empty array as fallback
                 setAvailableVacancies([]);
             });
@@ -574,7 +570,6 @@ export default function PeriodsDashboard({
         }
         setIsLoading(true);
         const createUrl = company?.id ? `/dashboard/companies/${company.id}/periods` : '/dashboard/periods';
-        console.debug('[Periods] Create attempt', { createUrl, payload: newPeriod });
         router.post(createUrl, newPeriod, {
             onSuccess: () => {
                 setNewPeriod({ name: '', description: '', start_time: '', end_time: '', vacancies_ids: [] });
@@ -588,7 +583,6 @@ export default function PeriodsDashboard({
                 }
             },
             onError: (errors) => {
-                console.error('[Periods] Create error', errors);
                 toast.error('Failed to create period. Fix validation errors and retry.');
                 setIsLoading(false);
             }
@@ -604,7 +598,6 @@ export default function PeriodsDashboard({
         if (!deletingPeriodId) return;
         setIsLoading(true);
         const deleteUrl = company?.id ? `/dashboard/companies/${company.id}/periods/${deletingPeriodId}` : `/dashboard/periods/${deletingPeriodId}`;
-        console.debug('[Periods] Delete attempt', { deleteUrl, deletingPeriodId });
         router.delete(deleteUrl, {
             onSuccess: () => {
                 setIsDeleteDialogOpen(false);
@@ -618,7 +611,6 @@ export default function PeriodsDashboard({
                 }
             },
             onError: (err) => {
-                console.error('[Periods] Delete error', err);
                 toast.error('Failed to delete period');
                 setIsLoading(false);
                 setDeletingPeriodId(null);
@@ -642,7 +634,6 @@ export default function PeriodsDashboard({
         }
         setIsLoading(true);
         const updateUrl = company?.id ? `/dashboard/companies/${company.id}/periods/${editingPeriodId}` : `/dashboard/periods/${editingPeriodId}`;
-        console.debug('[Periods] Update attempt', { updateUrl, editingPeriodId, payload: editFormData });
         router.put(updateUrl, editFormData, {
             onSuccess: () => {
                 setIsEditDialogOpen(false);
@@ -656,7 +647,6 @@ export default function PeriodsDashboard({
                 }
             },
             onError: (errors) => {
-                console.error('[Periods] Update error', errors);
                 toast.error('Failed to update period. Please check all fields and try again.');
                 setIsLoading(false);
             },
@@ -681,12 +671,6 @@ export default function PeriodsDashboard({
             const firstCompany = selectedPeriod.companies[0];
             companyIdParam = `&company=${firstCompany.id}`;
             
-            // Log a warning if there are multiple companies
-            if (selectedPeriod.companies.length > 1) {
-                console.warn(`Period "${selectedPeriod.name}" has ${selectedPeriod.companies.length} companies. Using "${firstCompany.name}" as default.`);
-            }
-        } else {
-            console.warn('No company information found for the selected period');
         }
         
         // Navigate to administration page with period parameter and company ID

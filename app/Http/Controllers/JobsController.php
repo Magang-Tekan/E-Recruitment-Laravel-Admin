@@ -9,7 +9,6 @@ use App\Models\VacancyPeriods;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
 class JobsController extends Controller
@@ -87,13 +86,9 @@ class JobsController extends Controller
 
             DB::commit();
 
-            Log::info('User applied for a job', ['user_id' => Auth::id(), 'vacancy_id' => $id, 'vacancy_period_id' => $vacancyPeriod->id]);
-
             return redirect()->back()->with('success', 'Your application has been submitted successfully!');
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error while applying for a job', ['user_id' => Auth::id(), 'vacancy_id' => $id, 'error' => $e->getMessage()]);
-
             return redirect()->back()->with('error', 'An error occurred while submitting your application. Please try again.');
         }
     }

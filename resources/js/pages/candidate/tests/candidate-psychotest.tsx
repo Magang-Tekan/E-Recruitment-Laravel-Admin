@@ -122,7 +122,6 @@ export default function CandidateQuestions() {
                 choice_id: choiceId
             });
         } catch (error) {
-            console.error('Failed to save answer:', error);
             // Could show a toast notification here
         }
     };    const nextQuestion = () => {
@@ -179,7 +178,6 @@ export default function CandidateQuestions() {
                 }, 2000);
             }
         } catch (error) {
-            console.error('Failed to submit test:', error);
             alert('Failed to submit test. Please try again.');
         } finally {
             setIsSubmitting(false);

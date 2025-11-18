@@ -123,7 +123,6 @@ export default function DepartmentStageManagement({ departments, educationLevels
             resetDepartmentForm();
         } catch (error) {
             toast.error('An error occurred');
-            console.error('Error:', error);
         } finally {
             setIsLoading(false);
         }
@@ -136,7 +135,6 @@ export default function DepartmentStageManagement({ departments, educationLevels
             toast.success('Department deleted successfully');
         } catch (error) {
             toast.error('An error occurred');
-            console.error('Error:', error);
         } finally {
             setIsLoading(false);
         }
@@ -166,7 +164,6 @@ export default function DepartmentStageManagement({ departments, educationLevels
             resetEducationLevelForm();
         } catch (error) {
             toast.error('An error occurred');
-            console.error('Error:', error);
         } finally {
             setIsLoading(false);
         }
@@ -179,7 +176,6 @@ export default function DepartmentStageManagement({ departments, educationLevels
             toast.success('Education level deleted successfully');
         } catch (error) {
             toast.error('An error occurred');
-            console.error('Error:', error);
         } finally {
             setIsLoading(false);
         }
@@ -209,7 +205,6 @@ export default function DepartmentStageManagement({ departments, educationLevels
             resetMajorForm();
         } catch (error) {
             toast.error('An error occurred');
-            console.error('Error:', error);
         } finally {
             setIsLoading(false);
         }
@@ -222,7 +217,6 @@ export default function DepartmentStageManagement({ departments, educationLevels
             toast.success('Major deleted successfully');
         } catch (error) {
             toast.error('An error occurred');
-            console.error('Error:', error);
         } finally {
             setIsLoading(false);
         }

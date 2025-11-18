@@ -85,14 +85,6 @@ export default function AssessmentDetail({ candidate }: Props) {
         const questionPack = candidate?.vacancy?.question_pack ?? candidate?.user?.question_pack ?? null;
         const vacancy = candidate?.vacancy ?? candidate?.vacancy_period?.vacancy ?? null;
         
-        // Debug log to see what we're checking
-        console.log('🔍 isPsychologicalTest Debug:', {
-            questionPack_test_type: questionPack?.test_type,
-            vacancy_psychotest_name: vacancy?.psychotest_name,
-            candidate_test_type: getTestType(),
-            vacancy_title: vacancy?.title
-        });
-        
         // Check question pack test type - ONLY psychology/psychological, NOT general or technical
         let isPackPsychological = false;
         if (questionPack && questionPack.test_type) {
@@ -110,7 +102,6 @@ export default function AssessmentDetail({ candidate }: Props) {
         }
         
         const result = isPackPsychological || isVacancyPsychological;
-        console.log('🎯 isPsychologicalTest Result:', result);
         
         // Return true ONLY if EITHER question pack OR vacancy clearly indicate psychological test
         return result;
@@ -171,49 +162,30 @@ export default function AssessmentDetail({ candidate }: Props) {
     };
 
     const handleExportPsychologicalTest = async (format: 'pdf' | 'excel') => {
-        console.log('=== EXPORT STARTING ===');
-        console.log('Format:', format);
-        console.log('Candidate ID:', candidate.id);
-        console.log('isExporting:', isExporting);
-        
         if (isExporting) {
-            console.log('Already exporting, skipping');
             return;
         }
         
         setIsExporting(true);
         
         const url = `/dashboard/recruitment/assessment/${candidate.id}/export-psychological-test?format=${format}`;
-        console.log('Export URL:', url);
         
         try {
-            // Simple test: just try window.open first
-            console.log('Attempting window.open...');
             const newWindow = window.open(url, '_blank');
             
-            if (newWindow) {
-                console.log('Window opened successfully');
-                // Don't do anything else for now, just see if this works
-            } else {
-                console.log('Window.open failed, probably blocked');
+            if (!newWindow) {
                 alert('Popup diblokir! Silakan allow popup untuk website ini dan coba lagi.');
             }
             
         } catch (error) {
-            console.error('Export error:', error);
             alert(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
         } finally {
-            console.log('Resetting isExporting');
             setIsExporting(false);
         }
     };
 
     const downloadFile = async (url: string, format: 'pdf' | 'excel') => {
-        console.log('downloadFile called with:', { url, format });
-        
         try {
-            // Use fetch to get the file as blob
-            console.log('Making fetch request...');
             const response = await fetch(url, {
                 method: 'GET',
                 headers: {
@@ -222,20 +194,14 @@ export default function AssessmentDetail({ candidate }: Props) {
                 },
             });
             
-            console.log('Response status:', response.status);
-            console.log('Response headers:', [...response.headers.entries()]);
-            
             if (!response.ok) {
                 const errorText = await response.text();
-                console.error('Response error:', errorText);
                 throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
             }
             
             // Get the filename from response headers or create default
             const contentDisposition = response.headers.get('Content-Disposition');
             let filename = `psychological-test-${candidate.id}.${format === 'pdf' ? 'pdf' : 'csv'}`;
-            
-            console.log('Content-Disposition:', contentDisposition);
             
             if (contentDisposition) {
                 const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
@@ -244,32 +210,24 @@ export default function AssessmentDetail({ candidate }: Props) {
                 }
             }
             
-            console.log('Final filename:', filename);
-            
             // Convert response to blob
-            console.log('Converting to blob...');
             const blob = await response.blob();
-            console.log('Blob size:', blob.size, 'type:', blob.type);
             
             // Create download link
-            console.log('Creating download link...');
             const downloadUrl = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = downloadUrl;
             link.download = filename;
             
             // Trigger download
-            console.log('Triggering download...');
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
             
             // Clean up
             window.URL.revokeObjectURL(downloadUrl);
-            console.log('Download completed successfully');
             
         } catch (error) {
-            console.error('downloadFile error:', error);
             throw error;
         }
     };
@@ -304,7 +262,7 @@ export default function AssessmentDetail({ candidate }: Props) {
             setZoomLink('');
             setScheduledAt('');
         } catch (error) {
-            console.error('Failed to update psychological test score:', error);
+            // Error handled by alert in router
         } finally {
             setIsSubmitting(false);
         }
@@ -715,7 +673,6 @@ export default function AssessmentDetail({ candidate }: Props) {
                                                                                         }
                                                                                     },
                                                                                     onError: (errors) => {
-                                                                                        console.error('Error saving essay score:', errors);
                                                                                         setIsSavingScore(prev => ({ ...prev, [answer.id]: false }));
                                                                                         alert('Gagal menyimpan score. Silakan coba lagi.');
                                                                                     }

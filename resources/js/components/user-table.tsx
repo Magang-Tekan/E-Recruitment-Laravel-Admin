@@ -28,9 +28,9 @@ interface PaginationData {
 export function UserTable({
     users,
     pagination,
-    onView = (id) => console.log('View user:', id),
-    onEdit = (id) => console.log('Edit user:', id),
-    onDelete = (id) => console.log('Delete user:', id),
+    onView = (id) => {},
+    onEdit = (id) => {},
+    onDelete = (id) => {},
     onPageChange,
     onPerPageChange,
     itemsPerPageOptions = [10, 25, 50, 100],

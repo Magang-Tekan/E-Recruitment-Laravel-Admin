@@ -135,7 +135,6 @@ export default function InterviewDetail({ candidate }: Props) {
                         variant="outline"
                         className="gap-2"
                         onClick={() => {
-                            console.log('Reject button clicked');
                             setActionDialog({ isOpen: true, action: 'reject' });
                         }}
                     >
@@ -145,7 +144,6 @@ export default function InterviewDetail({ candidate }: Props) {
                     <Button
                         className="gap-2"
                         onClick={() => {
-                            console.log('Accept button clicked');
                             setActionDialog({ isOpen: true, action: 'accept' });
                         }}
                     >
@@ -224,27 +222,19 @@ export default function InterviewDetail({ candidate }: Props) {
 
                 {/* Stage Action Dialog */}
                 {actionDialog && (
-                    <>
-                        {console.log('🔍 Interview ActionDialog Debug:', {
-                            isOpen: actionDialog.isOpen,
-                            action: actionDialog.action,
-                            candidateId: candidate.id,
-                            stage: 'interview'
-                        })}
-                        <StageActionDialog
-                            isOpen={actionDialog.isOpen}
-                            onClose={() => setActionDialog(null)}
-                            applicationId={candidate.id}
-                            stage="interview"
-                            action={actionDialog.action}
-                            title={actionDialog.action === 'accept' ? 'Accept Candidate' : 'Reject Application'}
-                            description={
-                                actionDialog.action === 'accept'
-                                    ? 'Please evaluate the candidate and provide a score (10-99). You may add optional notes.'
-                                    : 'The candidate will be rejected from the recruitment process. Please provide a reason for rejection.'
-                            }
-                        />
-                    </>
+                    <StageActionDialog
+                        isOpen={actionDialog.isOpen}
+                        onClose={() => setActionDialog(null)}
+                        applicationId={candidate.id}
+                        stage="interview"
+                        action={actionDialog.action}
+                        title={actionDialog.action === 'accept' ? 'Accept Candidate' : 'Reject Application'}
+                        description={
+                            actionDialog.action === 'accept'
+                                ? 'Please evaluate the candidate and provide a score (10-99). You may add optional notes.'
+                                : 'The candidate will be rejected from the recruitment process. Please provide a reason for rejection.'
+                        }
+                    />
                 )}
             </div>
         </AppLayout>

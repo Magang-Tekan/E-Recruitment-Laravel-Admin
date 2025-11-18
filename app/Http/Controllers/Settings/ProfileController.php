@@ -23,10 +23,6 @@ class ProfileController extends Controller
         $authUser = Auth::user();
         
         // Debug logging to check user data (remove in production)
-        // Log::info('Profile Controller - Auth User ID:', ['id' => $authUser->id]);
-        // Log::info('Profile Controller - Auth User Name:', ['name' => $authUser->name]);
-        // Log::info('Profile Controller - Auth User Email:', ['email' => $authUser->email]);
-        // Log::info('Profile Controller - Auth User Role:', ['role' => $authUser->role->value]);
 
         if ($authUser->role->value == UserRole::HR->value) {
             return Inertia::render('admin/settings/profile', [
@@ -51,10 +47,6 @@ class ProfileController extends Controller
         $user = $request->user();
         
         // Debug logging for update (remove in production)
-        // Log::info('Profile Update - User ID:', ['id' => $user->id]);
-        // Log::info('Profile Update - User Name:', ['name' => $user->name]);
-        // Log::info('Profile Update - User Email:', ['email' => $user->email]);
-        // Log::info('Profile Update - Validated Data:', $request->validated());
 
         $user->fill($request->validated());
 
@@ -64,7 +56,6 @@ class ProfileController extends Controller
 
         $user->save();
         
-        // Log::info('Profile Update - User saved successfully');
 
         return to_route('profile.edit');
     }
