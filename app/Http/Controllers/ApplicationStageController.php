@@ -1524,26 +1524,40 @@ class ApplicationStageController extends Controller
         }
 
 
-        // Get question order from question pack to ensure answers are sorted correctly
+        // Get all questions from question pack (ordered by pivot id)
         $questionPack = $application->vacancyPeriod->vacancy->questionPack;
-        $questionOrder = [];
+        $questions = collect();
+        $userAnswersMap = $application->userAnswers->keyBy('question_id');
+        
         if ($questionPack) {
-            // Get questions in the order they were attached to the pack (by pivot id)
-            // Questions are already ordered by pivot id in the relationship
-            $questionOrder = $questionPack->questions->pluck('id')->toArray();
+            // Get all questions from question pack with their choices (already ordered by pivot id)
+            $questions = $questionPack->questions()->with('choices')->get();
         }
         
-        // Sort userAnswers according to question pack order
-        $sortedAnswers = $application->userAnswers;
-        if (!empty($questionOrder)) {
-            $sortedAnswers = $application->userAnswers->sortBy(function($answer) use ($questionOrder) {
-                $index = array_search($answer->question_id, $questionOrder);
-                return $index !== false ? $index : 9999; // Put unmatched questions at the end
-            })->values();
-        } else {
-            // Fallback: sort by question_id if no question pack order available
-            $sortedAnswers = $application->userAnswers->sortBy('question_id')->values();
-        }
+        // Build answers array with ALL questions from question pack
+        // For each question, find the user's answer if exists
+        $answersData = $questions->map(function($question) use ($userAnswersMap) {
+            $userAnswer = $userAnswersMap->get($question->id);
+            
+            return [
+                'id' => $userAnswer?->id ?? null,
+                'question_id' => $question->id,
+                'question' => [
+                    'text' => $question->question_text,
+                    'type' => $question->question_type ?? 'multiple_choice',
+                    'choices' => $question->choices->map(fn($choice) => [
+                        'text' => $choice->choice_text,
+                        'is_correct' => $choice->is_correct,
+                    ]),
+                ],
+                'selected_answer' => $userAnswer ? [
+                    'text' => $userAnswer->choice?->choice_text ?? ($userAnswer->answer_text ?? 'No answer selected'),
+                    'is_correct' => $userAnswer->choice?->is_correct ?? false,
+                ] : null,
+                'answer_text' => $userAnswer?->answer_text,
+                'score' => $userAnswer?->score,
+            ];
+        })->toArray();
 
         return Inertia::render('admin/company/assessment-detail', [
             'candidate' => [
@@ -1608,24 +1622,7 @@ class ApplicationStageController extends Controller
                         'started_at' => $currentHistory?->processed_at,
                         'completed_at' => $currentHistory?->completed_at,
                         'score' => $currentHistory?->score ?? $assessmentScore,
-                        'answers' => $sortedAnswers->map(fn($answer) => [
-                            'id' => $answer->id,
-                            'question_id' => $answer->question_id,
-                            'question' => [
-                                'text' => $answer->question->question_text,
-                                'type' => $answer->question->question_type ?? 'multiple_choice',
-                                'choices' => $answer->question->choices->map(fn($choice) => [
-                                    'text' => $choice->choice_text,
-                                    'is_correct' => $choice->is_correct,
-                                ]),
-                            ],
-                            'selected_answer' => [
-                                'text' => $answer->choice?->choice_text ?? ($answer->answer_text ?? 'No answer selected'),
-                                'is_correct' => $answer->choice?->is_correct ?? false,
-                            ],
-                            'answer_text' => $answer->answer_text,
-                            'score' => $answer->score,
-                        ])->toArray(),
+                        'answers' => $answersData,
                     ],
                 ],
             ],

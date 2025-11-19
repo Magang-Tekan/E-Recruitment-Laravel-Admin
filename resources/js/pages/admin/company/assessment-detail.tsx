@@ -565,79 +565,112 @@ export default function AssessmentDetail({ candidate }: Props) {
                                                                 </div>
                                                                 <p className="mt-2">{answer.question.text}</p>
                                                             </div>
-                                                            {isMultipleChoice && (
+                                                            {isMultipleChoice && answer.selected_answer && (
                                                                 answer.selected_answer.is_correct ? (
                                                                     <CheckCircle2 className="h-6 w-6 text-green-500" />
                                                                 ) : (
                                                                     <XCircle className="h-6 w-6 text-red-500" />
                                                                 )
                                                             )}
+                                                            {isMultipleChoice && !answer.selected_answer && (
+                                                                <span className="text-xs text-gray-500">Not answered</span>
+                                                            )}
                                                         </div>
                                                         
                                                         {isMultipleChoice ? (
                                                             <div className="mt-4 space-y-2">
-                                                                {answer.question.choices && answer.question.choices.length > 0 ? (
-                                                                    answer.question.choices.map((choice: any, choiceIndex: number) => {
-                                                                        let className = "flex items-center gap-2 rounded-lg p-2 ";
-                                                                        if (choice.text === answer.selected_answer.text) {
-                                                                            className += answer.selected_answer.is_correct 
-                                                                                ? "bg-green-50 text-green-700 font-medium" 
-                                                                                : "bg-red-50 text-red-700 font-medium";
-                                                                        } else if (choice.is_correct) {
-                                                                            className += "bg-green-50 text-green-700";
-                                                                        }
+                                                                {answer.selected_answer ? (
+                                                                    answer.question.choices && answer.question.choices.length > 0 ? (
+                                                                        answer.question.choices.map((choice: any, choiceIndex: number) => {
+                                                                            let className = "flex items-center gap-2 rounded-lg p-2 ";
+                                                                            if (choice.text === answer.selected_answer.text) {
+                                                                                className += answer.selected_answer.is_correct 
+                                                                                    ? "bg-green-50 text-green-700 font-medium" 
+                                                                                    : "bg-red-50 text-red-700 font-medium";
+                                                                            } else if (choice.is_correct) {
+                                                                                className += "bg-green-50 text-green-700";
+                                                                            }
 
-                                                                        return (
-                                                                            <div key={choiceIndex} className={className}>
-                                                                                {choice.text === answer.selected_answer.text && (
-                                                                                    <div className={`h-2 w-2 rounded-full ${choice.is_correct ? 'bg-green-500' : 'bg-red-500'}`} />
-                                                                                )}
-                                                                                <span>{choice.text}</span>
-                                                                            </div>
-                                                                        );
-                                                                    })
+                                                                            return (
+                                                                                <div key={choiceIndex} className={className}>
+                                                                                    {choice.text === answer.selected_answer.text && (
+                                                                                        <div className={`h-2 w-2 rounded-full ${choice.is_correct ? 'bg-green-500' : 'bg-red-500'}`} />
+                                                                                    )}
+                                                                                    <span>{choice.text}</span>
+                                                                                </div>
+                                                                            );
+                                                                        })
+                                                                    ) : (
+                                                                        <div className="text-gray-500 italic">No choices available</div>
+                                                                    )
                                                                 ) : (
-                                                                    <div className="text-gray-500 italic">No choices available</div>
+                                                                    <div className="space-y-2">
+                                                                        {answer.question.choices && answer.question.choices.length > 0 ? (
+                                                                            answer.question.choices.map((choice: any, choiceIndex: number) => {
+                                                                                let className = "flex items-center gap-2 rounded-lg p-2 border border-gray-200 ";
+                                                                                if (choice.is_correct) {
+                                                                                    className += "bg-green-50 text-green-700";
+                                                                                }
+
+                                                                                return (
+                                                                                    <div key={choiceIndex} className={className}>
+                                                                                        {choice.is_correct && (
+                                                                                            <div className="h-2 w-2 rounded-full bg-green-500" />
+                                                                                        )}
+                                                                                        <span>{choice.text}</span>
+                                                                                    </div>
+                                                                                );
+                                                                            })
+                                                                        ) : (
+                                                                            <div className="text-gray-500 italic">No choices available</div>
+                                                                        )}
+                                                                        <div className="text-sm text-amber-600 bg-amber-50 p-2 rounded border border-amber-200">
+                                                                            ⚠️ Question not answered by candidate
+                                                                        </div>
+                                                                    </div>
                                                                 )}
                                                             </div>
                                                         ) : (
                                                             <div className="mt-4 space-y-3">
-                                                                <div className="bg-gray-50 p-3 rounded-lg border">
-                                                                    <p className="text-sm font-medium text-gray-700 mb-1">Candidate's Answer:</p>
-                                                                    <p className="text-gray-900 whitespace-pre-wrap">{answer.answer_text || answer.selected_answer.text || 'No answer provided'}</p>
-                                                                </div>
-                                                                <div className="flex items-center gap-3">
-                                                                    <Label htmlFor={`essay-score-${answer.id}`} className="text-sm font-medium">
-                                                                        Score (0-100):
-                                                                    </Label>
-                                                                    <Input
-                                                                        id={`essay-score-${answer.id}`}
-                                                                        type="number"
-                                                                        min="0"
-                                                                        max="100"
-                                                                        step="0.01"
-                                                                        value={essayScores[answer.id] !== undefined && essayScores[answer.id] !== ''
-                                                                            ? essayScores[answer.id] 
-                                                                            : (currentScore !== null && currentScore !== undefined
-                                                                                ? currentScore.toString() 
-                                                                                : '')}
-                                                                        onChange={(e) => {
-                                                                            const value = e.target.value;
-                                                                            setEssayScores(prev => ({
-                                                                                ...prev,
-                                                                                [answer.id]: value
-                                                                            }));
-                                                                        }}
-                                                                        onBlur={(e) => {
-                                                                            const scoreValue = parseFloat(e.target.value);
-                                                                            if (!isNaN(scoreValue) && scoreValue >= 0 && scoreValue <= 100) {
-                                                                                const score = Number(scoreValue);
-                                                                                setIsSavingScore(prev => ({ ...prev, [answer.id]: true }));
-                                                                                
-                                                                                router.post(`/dashboard/recruitment/assessment/${candidate.id}/essay-score`, {
-                                                                                    answer_id: answer.id,
-                                                                                    score: score,
-                                                                                }, {
+                                                                {answer.selected_answer || answer.answer_text ? (
+                                                                    <>
+                                                                        <div className="bg-gray-50 p-3 rounded-lg border">
+                                                                            <p className="text-sm font-medium text-gray-700 mb-1">Candidate's Answer:</p>
+                                                                            <p className="text-gray-900 whitespace-pre-wrap">{answer.answer_text || answer.selected_answer?.text || 'No answer provided'}</p>
+                                                                        </div>
+                                                                        {answer.id && (
+                                                                            <div className="flex items-center gap-3">
+                                                                                <Label htmlFor={`essay-score-${answer.id}`} className="text-sm font-medium">
+                                                                                    Score (0-100):
+                                                                                </Label>
+                                                                                <Input
+                                                                                    id={`essay-score-${answer.id}`}
+                                                                                    type="number"
+                                                                                    min="0"
+                                                                                    max="100"
+                                                                                    step="0.01"
+                                                                                    value={essayScores[answer.id] !== undefined && essayScores[answer.id] !== ''
+                                                                                        ? essayScores[answer.id] 
+                                                                                        : (currentScore !== null && currentScore !== undefined
+                                                                                            ? currentScore.toString() 
+                                                                                            : '')}
+                                                                                    onChange={(e) => {
+                                                                                        const value = e.target.value;
+                                                                                        setEssayScores(prev => ({
+                                                                                            ...prev,
+                                                                                            [answer.id]: value
+                                                                                        }));
+                                                                                    }}
+                                                                                    onBlur={(e) => {
+                                                                                        const scoreValue = parseFloat(e.target.value);
+                                                                                        if (!isNaN(scoreValue) && scoreValue >= 0 && scoreValue <= 100) {
+                                                                                            const score = Number(scoreValue);
+                                                                                            setIsSavingScore(prev => ({ ...prev, [answer.id]: true }));
+                                                                                            
+                                                                                            router.post(`/dashboard/recruitment/assessment/${candidate.id}/essay-score`, {
+                                                                                                answer_id: answer.id,
+                                                                                                score: score,
+                                                                                            }, {
                                                                                     preserveScroll: true,
                                                                                     onSuccess: (page) => {
                                                                                         // Update saved scores state immediately
@@ -698,7 +731,14 @@ export default function AssessmentDetail({ candidate }: Props) {
                                                                             {Number(currentScore).toFixed(2)}%
                                                                         </span>
                                                                     )}
-                                                                </div>
+                                                                            </div>
+                                                                        )}
+                                                                    </>
+                                                                ) : (
+                                                                    <div className="text-sm text-amber-600 bg-amber-50 p-3 rounded border border-amber-200">
+                                                                        ⚠️ Question not answered by candidate
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         )}
                                                     </div>
