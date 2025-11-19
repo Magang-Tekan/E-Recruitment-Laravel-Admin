@@ -50,7 +50,7 @@ class CandidateTestController extends Controller
                     ->with('error', 'You are not eligible to take this test at this time.');
             }
             
-            // Get questions from question pack
+            // Get questions from question pack (already ordered by pivot id in relationship)
             $questions = collect();
             if ($application->vacancy->questionPack) {
                 $questions = $application->vacancy->questionPack->questions()->with('choices')->get();
