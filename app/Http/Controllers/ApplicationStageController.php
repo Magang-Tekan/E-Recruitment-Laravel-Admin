@@ -1608,38 +1608,24 @@ class ApplicationStageController extends Controller
                         'started_at' => $currentHistory?->processed_at,
                         'completed_at' => $currentHistory?->completed_at,
                         'score' => $currentHistory?->score ?? $assessmentScore,
-                        'answers' => $sortedAnswers->count() > 0 
-                            ? $sortedAnswers->map(fn($answer) => [
-                                'id' => $answer->id,
-                                'question_id' => $answer->question_id,
-                                'question' => [
-                                    'text' => $answer->question->question_text,
-                                    'type' => $answer->question->question_type ?? 'multiple_choice',
-                                    'choices' => $answer->question->choices->map(fn($choice) => [
-                                        'text' => $choice->choice_text,
-                                        'is_correct' => $choice->is_correct,
-                                    ]),
-                                ],
-                                'selected_answer' => [
-                                    'text' => $answer->choice?->choice_text ?? ($answer->answer_text ?? 'No answer selected'),
-                                    'is_correct' => $answer->choice?->is_correct ?? false,
-                                ],
-                                'answer_text' => $answer->answer_text,
-                                'score' => $answer->score,
-                            ])
-                            : [
-                                [
-                                    'question' => [
-                                        'text' => 'No questions answered yet',
-                                        'type' => 'multiple_choice',
-                                        'choices' => [],
-                                    ],
-                                    'selected_answer' => [
-                                        'text' => 'No answer provided',
-                                        'is_correct' => false,
-                                    ],
-                                ]
+                        'answers' => $sortedAnswers->map(fn($answer) => [
+                            'id' => $answer->id,
+                            'question_id' => $answer->question_id,
+                            'question' => [
+                                'text' => $answer->question->question_text,
+                                'type' => $answer->question->question_type ?? 'multiple_choice',
+                                'choices' => $answer->question->choices->map(fn($choice) => [
+                                    'text' => $choice->choice_text,
+                                    'is_correct' => $choice->is_correct,
+                                ]),
                             ],
+                            'selected_answer' => [
+                                'text' => $answer->choice?->choice_text ?? ($answer->answer_text ?? 'No answer selected'),
+                                'is_correct' => $answer->choice?->is_correct ?? false,
+                            ],
+                            'answer_text' => $answer->answer_text,
+                            'score' => $answer->score,
+                        ])->toArray(),
                     ],
                 ],
             ],
