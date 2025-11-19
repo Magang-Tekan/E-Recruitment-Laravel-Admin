@@ -1038,13 +1038,18 @@ class ApplicationStageController extends Controller
             'vacancyPeriod' => function($query) {
                 $query->select('id', 'vacancy_id', 'period_id')
                     ->with(['vacancy:id,title,company_id,question_pack_id', 'period:id,name,start_time,end_time'])
-                    ->with(['vacancy.questionPack:id,test_type,pack_name']); // Add questionPack relation
+                    ->with(['vacancy.questionPack' => function($q) {
+                        $q->select('id', 'test_type', 'pack_name')
+                          ->with(['questions' => function($q2) {
+                              $q2->orderBy('pack_question.id', 'asc');
+                          }]);
+                    }]); // Add questionPack relation with ordered questions
             },
             'userAnswers' => function($query) {
                 $query->with([
                     'question:id,question_text,question_type',
                     'choice:id,choice_text,is_correct'
-                ]);
+                ])->orderBy('question_id', 'asc');
             },
             // Load all history, not just active assessment history
             'history' => function($query) {
@@ -1082,6 +1087,25 @@ class ApplicationStageController extends Controller
         // Transform the data
         $transformedData = collect($applications->items())->map(function ($application) {
             $currentHistory = $application->history->first();
+            
+            // Get question order from question pack to ensure answers are sorted correctly
+            $questionPack = $application->vacancyPeriod->vacancy->questionPack ?? null;
+            $questionOrder = [];
+            if ($questionPack) {
+                $questionOrder = $questionPack->questions->pluck('id')->toArray();
+            }
+            
+            // Sort userAnswers according to question pack order
+            $sortedAnswers = $application->userAnswers;
+            if (!empty($questionOrder)) {
+                $sortedAnswers = $application->userAnswers->sortBy(function($answer) use ($questionOrder) {
+                    $index = array_search($answer->question_id, $questionOrder);
+                    return $index !== false ? $index : 9999;
+                })->values();
+            } else {
+                $sortedAnswers = $application->userAnswers->sortBy('question_id')->values();
+            }
+            
             return [
                 'id' => $application->id,
                 'user' => [
@@ -1092,9 +1116,9 @@ class ApplicationStageController extends Controller
                 'vacancy_period' => [
                     'vacancy' => [
                         'title' => $application->vacancyPeriod->vacancy->title ?? 'N/A',
-                        'question_pack' => $application->vacancyPeriod->vacancy->questionPack ? [
-                            'test_type' => $application->vacancyPeriod->vacancy->questionPack->test_type,
-                            'pack_name' => $application->vacancyPeriod->vacancy->questionPack->pack_name,
+                        'question_pack' => $questionPack ? [
+                            'test_type' => $questionPack->test_type,
+                            'pack_name' => $questionPack->pack_name,
                         ] : null,
                     ]
                 ],
@@ -1121,7 +1145,7 @@ class ApplicationStageController extends Controller
                     ]
                 ],
                 'assessment' => [
-                    'answers' => $application->userAnswers->map(fn($answer) => [
+                    'answers' => $sortedAnswers->map(fn($answer) => [
                         'question' => $answer->question->question_text,
                         'answer' => $answer->choice?->choice_text ?? ($answer->answer_text ?? 'No answer selected'),
                         'is_correct' => $answer->choice?->is_correct ?? false,
@@ -1371,7 +1395,8 @@ class ApplicationStageController extends Controller
                 ->latest();
             },
             'userAnswers' => function($query) {
-                $query->with(['question', 'choice']);
+                $query->with(['question', 'choice'])
+                    ->orderBy('question_id', 'asc');
             }
         ])->findOrFail($id);
 
@@ -1454,14 +1479,19 @@ class ApplicationStageController extends Controller
             'user.candidatesProfile',
             'user.candidatesCV',
             'vacancyPeriod.vacancy.company',
-            'vacancyPeriod.vacancy.questionPack', // Add this relation
+            'vacancyPeriod.vacancy.questionPack' => function($q) {
+                $q->with(['questions' => function($q2) {
+                    $q2->orderBy('pack_question.id', 'asc');
+                }]);
+            },
             'vacancyPeriod.period',
             'history' => function($query) {
                 $query->with(['status', 'reviewer'])
                     ->orderBy('processed_at', 'asc');
             },
             'userAnswers' => function($query) {
-                $query->with(['question.choices', 'choice']);
+                $query->with(['question.choices', 'choice'])
+                    ->orderBy('question_id', 'asc');
             }
         ])->findOrFail($id);
 
@@ -1493,6 +1523,27 @@ class ApplicationStageController extends Controller
             }
         }
 
+
+        // Get question order from question pack to ensure answers are sorted correctly
+        $questionPack = $application->vacancyPeriod->vacancy->questionPack;
+        $questionOrder = [];
+        if ($questionPack) {
+            // Get questions in the order they were attached to the pack (by pivot id)
+            // Questions are already ordered by pivot id in the relationship
+            $questionOrder = $questionPack->questions->pluck('id')->toArray();
+        }
+        
+        // Sort userAnswers according to question pack order
+        $sortedAnswers = $application->userAnswers;
+        if (!empty($questionOrder)) {
+            $sortedAnswers = $application->userAnswers->sortBy(function($answer) use ($questionOrder) {
+                $index = array_search($answer->question_id, $questionOrder);
+                return $index !== false ? $index : 9999; // Put unmatched questions at the end
+            })->values();
+        } else {
+            // Fallback: sort by question_id if no question pack order available
+            $sortedAnswers = $application->userAnswers->sortBy('question_id')->values();
+        }
 
         return Inertia::render('admin/company/assessment-detail', [
             'candidate' => [
@@ -1557,8 +1608,8 @@ class ApplicationStageController extends Controller
                         'started_at' => $currentHistory?->processed_at,
                         'completed_at' => $currentHistory?->completed_at,
                         'score' => $currentHistory?->score ?? $assessmentScore,
-                        'answers' => $application->userAnswers->count() > 0 
-                            ? $application->userAnswers->map(fn($answer) => [
+                        'answers' => $sortedAnswers->count() > 0 
+                            ? $sortedAnswers->map(fn($answer) => [
                                 'id' => $answer->id,
                                 'question_id' => $answer->question_id,
                                 'question' => [
@@ -1820,7 +1871,8 @@ class ApplicationStageController extends Controller
                     ->latest();
             },
             'userAnswers' => function($query) {
-                $query->with(['question.choices', 'choice']);
+                $query->with(['question.choices', 'choice'])
+                    ->orderBy('question_id', 'asc');
             },
             'report'
         ])->findOrFail($id);

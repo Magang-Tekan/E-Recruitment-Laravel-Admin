@@ -33,6 +33,8 @@ class QuestionPack extends Model
      */
     public function questions(): BelongsToMany
     {
-        return $this->belongsToMany(Question::class, 'pack_question', 'question_pack_id', 'question_id');
+        return $this->belongsToMany(Question::class, 'pack_question', 'question_pack_id', 'question_id')
+            ->withPivot('id')
+            ->orderBy('pack_question.id', 'asc');
     }
 }
