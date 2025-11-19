@@ -182,7 +182,7 @@ class Application extends Model
      */
     public function userAnswers(): HasMany
     {
-        return $this->hasMany(UserAnswer::class, 'user_id', 'user_id');
+        return $this->hasMany(UserAnswer::class, 'application_id');
     }
     
     /**
