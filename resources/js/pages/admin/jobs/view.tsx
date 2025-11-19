@@ -53,7 +53,7 @@ export default function ViewJob({ job }: JobProps) {
     };
 
     const formatSalary = (salary: string | undefined) => {
-        if (!salary) return 'Not specified';
+        if (!salary) return '-';
         // Keep the original format but add proper currency formatting
         const parts = salary.split('-').map(part => {
             const number = Number(part.replace(/[^0-9]/g, ''));
