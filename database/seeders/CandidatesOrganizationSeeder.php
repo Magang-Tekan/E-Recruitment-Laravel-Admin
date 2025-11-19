@@ -15,6 +15,9 @@ class CandidatesOrganizationSeeder extends Seeder
      */
     public function run(): void
     {
+        // Kosongkan semua organizations
+        CandidatesOrganization::query()->delete();
+        
         // Get candidate users
         $candidateUsers = User::where('role', UserRole::CANDIDATE)->get();
 
@@ -107,43 +110,7 @@ class CandidatesOrganizationSeeder extends Seeder
             'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
         ];
 
-        foreach ($candidateUsers as $user) {
-            // 70% chance for each candidate to have organization experience
-            if (rand(1, 100) <= 70) {
-                // Each candidate gets 1-3 organization experiences
-                $numberOfOrganizations = rand(1, 3);
-                
-                for ($i = 0; $i < $numberOfOrganizations; $i++) {
-                    $startYear = rand(2015, 2023);
-                    $startMonth = $months[array_rand($months)];
-                    
-                    $isActive = rand(0, 1); // 50% chance still active
-                    
-                    if ($isActive) {
-                        $endYear = null;
-                        $endMonth = null;
-                    } else {
-                        $endYear = rand($startYear, 2024);
-                        $endMonth = $months[array_rand($months)];
-                    }
-                    
-                    $organization = $organizations[array_rand($organizations)];
-                    $position = $positions[array_rand($positions)];
-                    
-                    CandidatesOrganization::create([
-                        'user_id' => $user->id,
-                        'organization_name' => $organization,
-                        'position' => $position,
-                        'start_month' => $startMonth,
-                        'start_year' => $startYear,
-                        'end_month' => $endMonth,
-                        'end_year' => $endYear,
-                        'description' => $this->generateOrganizationDescription($organization, $position),
-                        'is_active' => $isActive,
-                    ]);
-                }
-            }
-        }
+        // Tidak membuat organizations untuk candidates
     }
 
     private function generateOrganizationDescription($organization, $position)

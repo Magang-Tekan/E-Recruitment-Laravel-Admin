@@ -15,6 +15,9 @@ class CandidatesSkillSeeder extends Seeder
      */
     public function run(): void
     {
+        // Kosongkan semua skills
+        CandidatesSkill::query()->delete();
+        
         // Get candidate users
         $candidateUsers = User::where('role', UserRole::CANDIDATE)->get();
 
@@ -80,38 +83,6 @@ class CandidatesSkillSeeder extends Seeder
             'Sales Presentation', 'Cold Calling', 'CRM Software', 'Territory Management',
         ];
 
-        foreach ($candidateUsers as $user) {
-            // Special skills for user ID 3 (userbiasa) - Software Engineer profile
-            if ($user->id == 3) {
-                $softwareEngineerSkills = [
-                    'Java', 'Python', 'JavaScript', 'React', 'Spring Boot', 'Node.js',
-                    'MySQL', 'Git', 'Docker', 'AWS', 'Problem Solving', 'Team Leadership'
-                ];
-                
-                foreach ($softwareEngineerSkills as $skill) {
-                    CandidatesSkill::create([
-                        'user_id' => $user->id,
-                        'skill_name' => $skill,
-                        'certificate_file' => rand(0, 1) ? 'certificates/' . str_replace(' ', '_', strtolower($skill)) . '_certificate.pdf' : null,
-                    ]);
-                }
-            } else {
-                // Each candidate gets 3-8 random skills
-                $numberOfSkills = rand(3, 8);
-                $userSkills = array_rand(array_flip($skills), $numberOfSkills);
-                
-                if (!is_array($userSkills)) {
-                    $userSkills = [$userSkills];
-                }
-                
-                foreach ($userSkills as $skill) {
-                    CandidatesSkill::create([
-                        'user_id' => $user->id,
-                        'skill_name' => $skill,
-                        'certificate_file' => rand(0, 1) ? 'certificates/' . str_replace(' ', '_', strtolower($skill)) . '_certificate.pdf' : null,
-                    ]);
-                }
-            }
-        }
+        // Tidak membuat skills untuk candidates
     }
 } 

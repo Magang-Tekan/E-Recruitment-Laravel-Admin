@@ -15,6 +15,9 @@ class CandidatesCertificationSeeder extends Seeder
      */
     public function run(): void
     {
+        // Kosongkan semua certifications
+        CandidatesCertification::query()->delete();
+        
         // Get candidate users
         $candidateUsers = User::where('role', UserRole::CANDIDATE)->get();
 
@@ -113,25 +116,6 @@ class CandidatesCertificationSeeder extends Seeder
             'Sertifikat Pelatihan Kerja Kemnaker',
         ];
 
-        foreach ($candidateUsers as $user) {
-            // 70% chance for each candidate to have professional certification
-            if (rand(1, 100) <= 70) {
-                // Each candidate gets 1-3 certifications
-                $numberOfCertifications = rand(1, 3);
-                $userCertifications = array_rand(array_flip($certifications), $numberOfCertifications);
-                
-                if (!is_array($userCertifications)) {
-                    $userCertifications = [$userCertifications];
-                }
-                
-                foreach ($userCertifications as $certification) {
-                    CandidatesCertification::create([
-                        'user_id' => $user->id,
-                        'certification_name' => $certification,
-                        'certificate_file' => 'certificates/professional/' . str_replace([' ', '(', ')'], ['_', '', ''], strtolower($certification)) . '_' . $user->id . '.pdf',
-                    ]);
-                }
-            }
-        }
+        // Tidak membuat certifications untuk candidates
     }
 } 
