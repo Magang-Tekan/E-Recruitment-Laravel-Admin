@@ -15,6 +15,9 @@ class CandidatesAchievementSeeder extends Seeder
      */
     public function run(): void
     {
+        // Kosongkan semua achievements
+        CandidatesAchievement::query()->delete();
+        
         // Get candidate users
         $candidateUsers = User::where('role', UserRole::CANDIDATE)->get();
 
@@ -74,31 +77,7 @@ class CandidatesAchievementSeeder extends Seeder
             'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
         ];
 
-        foreach ($candidateUsers as $user) {
-            // 60% chance for each candidate to have achievements
-            if (rand(1, 100) <= 60) {
-                // Each candidate gets 1-2 achievements
-                $numberOfAchievements = rand(1, 2);
-                
-                for ($i = 0; $i < $numberOfAchievements; $i++) {
-                    $achievement = $achievements[array_rand($achievements)];
-                    $level = $levels[array_rand($levels)];
-                    $month = $months[array_rand($months)];
-                    $year = rand(2018, 2024);
-                    
-                    CandidatesAchievement::create([
-                        'user_id' => $user->id,
-                        'title' => $achievement,
-                        'level' => $level,
-                        'month' => $month,
-                        'year' => $year,
-                        'description' => $this->generateAchievementDescription($achievement, $level),
-                        'certificate_file' => 'certificates/achievements/' . str_replace([' ', '/'], ['_', '_'], strtolower($achievement)) . '_' . $user->id . '.pdf',
-                        'supporting_file' => rand(0, 1) ? 'supporting/achievements/' . str_replace([' ', '/'], ['_', '_'], strtolower($achievement)) . '_support_' . $user->id . '.pdf' : null,
-                    ]);
-                }
-            }
-        }
+        // Tidak membuat achievements untuk candidates
     }
 
     private function generateAchievementDescription($achievement, $level)

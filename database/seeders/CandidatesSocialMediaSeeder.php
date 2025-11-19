@@ -15,6 +15,9 @@ class CandidatesSocialMediaSeeder extends Seeder
      */
     public function run(): void
     {
+        // Kosongkan semua social media
+        CandidatesSocialMedia::query()->delete();
+        
         // Get candidate users
         $candidateUsers = User::where('role', UserRole::CANDIDATE)->get();
 
@@ -34,28 +37,7 @@ class CandidatesSocialMediaSeeder extends Seeder
             'Blog',
         ];
 
-        foreach ($candidateUsers as $user) {
-            // 80% chance for each candidate to have social media
-            if (rand(1, 100) <= 80) {
-                // Each candidate gets 1-4 social media platforms
-                $numberOfPlatforms = rand(1, 4);
-                $userPlatforms = array_rand(array_flip($socialPlatforms), $numberOfPlatforms);
-                
-                if (!is_array($userPlatforms)) {
-                    $userPlatforms = [$userPlatforms];
-                }
-                
-                foreach ($userPlatforms as $platform) {
-                    $url = $this->generateSocialMediaUrl($platform, $user->name);
-                    
-                    CandidatesSocialMedia::create([
-                        'user_id' => $user->id,
-                        'platform_name' => $platform,
-                        'url' => $url,
-                    ]);
-                }
-            }
-        }
+        // Tidak membuat social media untuk candidates
     }
 
     private function generateSocialMediaUrl($platform, $userName)

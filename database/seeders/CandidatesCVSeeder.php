@@ -15,25 +15,11 @@ class CandidatesCVSeeder extends Seeder
      */
     public function run(): void
     {
-        // Get candidate users
-        $candidateUsers = User::where('role', UserRole::CANDIDATE)->get();
-
-        foreach ($candidateUsers as $user) {
-            // 90% chance for each candidate to have CV
-            if (rand(1, 100) <= 90) {
-                $firstName = explode(' ', $user->name)[0];
-                
-                CandidatesCV::create([
-                    'user_id' => $user->id,
-                    'cv_filename' => 'CV_' . str_replace(' ', '_', $user->name) . '_' . date('Y') . '.pdf',
-                    'cv_path' => 'storage/cvs/' . $user->id . '/CV_' . str_replace(' ', '_', $user->name) . '_' . date('Y') . '.pdf',
-                    'download_count' => rand(0, 25),
-                    'last_downloaded_at' => rand(0, 1) ? now()->subDays(rand(1, 30)) : null,
-                    'cv_data_snapshot' => $this->generateCVSnapshot($user->name),
-                    'is_active' => true,
-                ]);
-            }
-        }
+        // Kosongkan semua CV
+        CandidatesCV::query()->delete();
+        
+        // Tidak membuat CV untuk candidates
+        $this->command->info('Candidates CV cleared.');
     }
 
     private function generateCVSnapshot($userName)

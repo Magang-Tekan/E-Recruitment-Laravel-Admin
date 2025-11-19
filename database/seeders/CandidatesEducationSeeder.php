@@ -17,8 +17,11 @@ class CandidatesEducationSeeder extends Seeder
      */
     public function run(): void
     {
-        // Get candidate users, majors, and education levels
-        $candidateUsers = User::where('role', UserRole::CANDIDATE)->get();
+        // Hapus semua education yang ada
+        CandidatesEducation::query()->delete();
+
+        // Get candidate users (hanya 3 candidate)
+        $candidateUsers = User::where('role', UserRole::CANDIDATE)->orderBy('id')->get();
         $majors = MasterMajor::all();
         $educationLevels = EducationLevel::all();
         
@@ -35,177 +38,64 @@ class CandidatesEducationSeeder extends Seeder
             $educationLevels = EducationLevel::all();
         }
 
-        $faculties = [
-            'Fakultas Teknik',
-            'Fakultas Ekonomi dan Bisnis',
-            'Fakultas Ilmu Komputer',
-            'Fakultas Kedokteran',
-            'Fakultas Hukum',
-            'Fakultas Ilmu Sosial dan Politik',
-            'Fakultas Psikologi',
-            'Fakultas Pendidikan',
-            'Fakultas Sastra',
-            'Fakultas MIPA',
-            'Fakultas Pertanian',
-            'Fakultas Seni dan Desain',
-            'Fakultas Farmasi',
-            'Fakultas Kesehatan Masyarakat',
-            'Fakultas Komunikasi',
-            'Fakultas Pariwisata',
-        ];
+        // Get S1 level dan Teknik Informatika major
+        $s1Level = $educationLevels->where('name', 'D4/S1')->first();
+        $smaLevel = $educationLevels->where('name', 'SMA/SMK')->first();
+        $informatikaMajor = $majors->where('name', 'Teknik Informatika')->first();
+        $smaMajor = $majors->where('name', 'Matematika')->first() ?? $majors->first();
 
-        $institutions = [
-            // Universitas Negeri
-            'Universitas Indonesia',
-            'Institut Teknologi Bandung',
-            'Universitas Gadjah Mada',
-            'Institut Teknologi Sepuluh Nopember',
-            'Universitas Diponegoro',
-            'Universitas Brawijaya',
-            'Universitas Airlangga',
-            'Universitas Hasanuddin',
-            'Universitas Sumatera Utara',
-            'Universitas Padjadjaran',
-            'Institut Pertanian Bogor',
-            'Universitas Sebelas Maret',
-            'Universitas Andalas',
-            'Universitas Sriwijaya',
-            'Universitas Negeri Jakarta',
-            'Universitas Pendidikan Indonesia',
-            'Universitas Negeri Malang',
-            'Universitas Negeri Yogyakarta',
-            'Universitas Negeri Semarang',
-            'Universitas Negeri Surabaya',
-            
-            // Universitas Swasta
-            'Universitas Bina Nusantara',
-            'Universitas Trisakti',
-            'Universitas Atmajaya Jakarta',
-            'Universitas Kristen Petra',
-            'Universitas Tarumanagara',
-            'Universitas Pelita Harapan',
-            'Universitas Mercu Buana',
-            'Universitas Gunadarma',
-            'Universitas Esa Unggul',
-            'Universitas Pancasila',
-            'Universitas Muhammadiyah Jakarta',
-            'Universitas Muhammadiyah Malang',
-            'Universitas Muhammadiyah Yogyakarta',
-            'Universitas Islam Indonesia',
-            'Universitas Ahmad Dahlan',
-            'Universitas Dian Nuswantoro',
-            'Universitas Kristen Maranatha',
-            'Universitas Katolik Parahyangan',
-            'Universitas Sanata Dharma',
-            'Universitas Kristen Satya Wacana',
-            
-            // Politeknik
-            'Politeknik Negeri Jakarta',
-            'Politeknik Negeri Bandung',
-            'Politeknik Negeri Malang',
-            'Politeknik Negeri Semarang',
-            'Politeknik Negeri Surabaya',
-            'Politeknik Elektronika Negeri Surabaya',
-            'Politeknik Manufaktur Bandung',
-            'Politeknik Negeri Media Kreatif',
-            'Politeknik Negeri Batam',
-            'Politeknik Negeri Padang',
-            
-            // SMA/SMK
-            'SMA Negeri 1 Jakarta',
-            'SMA Negeri 8 Jakarta',
-            'SMA Negeri 68 Jakarta',
-            'SMA Negeri 3 Bandung',
-            'SMA Negeri 5 Surabaya',
-            'SMA Labschool Jakarta',
-            'SMA Santa Ursula Jakarta',
-            'SMA Kanisius Jakarta',
-            'SMK Negeri 1 Jakarta',
-            'SMK Negeri 26 Jakarta',
-            'SMK Negeri 2 Bandung',
-            'SMK Negeri 1 Surabaya',
-            'SMK Telkom Bandung',
-            'SMK Grafika Jakarta',
-            'SMK Multimedia Jakarta',
-        ];
-
-        foreach ($candidateUsers as $user) {
-            // Special education for user ID 3 (userbiasa) - Software Engineer profile
-            if ($user->id == 3) {
-                // S1 Teknik Informatika
-                $s1Level = $educationLevels->where('id', 6)->first();
-                $informatikaMajor = $majors->where('name', 'Teknik Informatika')->first();
+        foreach ($candidateUsers as $index => $user) {
+            // S1 Teknik Informatika untuk semua candidate
+            if ($s1Level && $informatikaMajor) {
+                $institutions = [
+                    'Universitas Indonesia',
+                    'Institut Teknologi Bandung',
+                    'Universitas Gadjah Mada',
+                    'Institut Teknologi Sepuluh Nopember',
+                    'Universitas Bina Nusantara',
+                    'Universitas Gunadarma',
+                ];
                 
-                if ($s1Level && $informatikaMajor) {
-                    CandidatesEducation::create([
-                        'user_id' => $user->id,
-                        'education_level_id' => $s1Level->id,
-                        'faculty' => 'Fakultas Ilmu Komputer',
-                        'major_id' => $informatikaMajor->id,
-                        'institution_name' => 'Universitas Indonesia',
-                        'gpa' => 3.75,
-                        'year_in' => 2015,
-                        'year_out' => 2019,
-                    ]);
-                }
+                $gpas = [3.45, 3.60, 3.75];
+                $startYears = [2017, 2018, 2019];
+                $endYears = [2021, 2022, 2023];
                 
-                // SMA
-                $smaLevel = $educationLevels->where('name', 'SMA/SMK')->first();
-                $smaMajor = $majors->where('name', 'Matematika')->first() ?? $majors->first(); // Use Matematika major for SMA or fallback
-                if ($smaLevel && $smaMajor) {
-                    CandidatesEducation::create([
-                        'user_id' => $user->id,
-                        'education_level_id' => $smaLevel->id,
-                        'faculty' => 'SMA',
-                        'major_id' => $smaMajor->id,
-                        'institution_name' => 'SMA Negeri 8 Jakarta',
-                        'gpa' => 3.80,
-                        'year_in' => 2012,
-                        'year_out' => 2015,
-                    ]);
-                }
-            } else {
-                // Each candidate gets 1-3 education records
-                $numberOfEducations = rand(1, 3);
+                CandidatesEducation::create([
+                    'user_id' => $user->id,
+                    'education_level_id' => $s1Level->id,
+                    'faculty' => 'Fakultas Ilmu Komputer',
+                    'major_id' => $informatikaMajor->id,
+                    'institution_name' => $institutions[$index % count($institutions)],
+                    'gpa' => $gpas[$index % count($gpas)],
+                    'year_in' => $startYears[$index % count($startYears)],
+                    'year_out' => $endYears[$index % count($endYears)],
+                ]);
+            }
+            
+            // SMA untuk semua candidate
+            if ($smaLevel && $smaMajor) {
+                $smaInstitutions = [
+                    'SMA Negeri 8 Jakarta',
+                    'SMA Negeri 3 Bandung',
+                    'SMA Negeri 5 Surabaya',
+                ];
                 
-                for ($i = 0; $i < $numberOfEducations; $i++) {
-                    $educationLevel = $educationLevels->random();
-                    $startYear = 2010 + rand(0, 10); // 2010-2020
-                    $endYear = $startYear + $this->getEducationDuration($educationLevel->name);
-                    
-                    // For current education, end year might be null
-                    if (rand(0, 1) && $i == $numberOfEducations - 1) {
-                        $endYear = null;
-                    }
-                    
-                    CandidatesEducation::create([
-                        'user_id' => $user->id,
-                        'education_level_id' => $educationLevel->id,
-                        'faculty' => $faculties[array_rand($faculties)],
-                        'major_id' => $majors->random()->id,
-                        'institution_name' => $institutions[array_rand($institutions)],
-                        'gpa' => rand(250, 400) / 100, // 2.50 - 4.00
-                        'year_in' => $startYear,
-                        'year_out' => $endYear,
-                    ]);
-                }
+                $smaGpas = [3.70, 3.80, 3.85];
+                $smaStartYears = [2014, 2015, 2016];
+                $smaEndYears = [2017, 2018, 2019];
+                
+                CandidatesEducation::create([
+                    'user_id' => $user->id,
+                    'education_level_id' => $smaLevel->id,
+                    'faculty' => 'SMA',
+                    'major_id' => $smaMajor->id,
+                    'institution_name' => $smaInstitutions[$index % count($smaInstitutions)],
+                    'gpa' => $smaGpas[$index % count($smaGpas)],
+                    'year_in' => $smaStartYears[$index % count($smaStartYears)],
+                    'year_out' => $smaEndYears[$index % count($smaEndYears)],
+                ]);
             }
         }
     }
 
-    private function getEducationDuration($level)
-    {
-        $durations = [
-            'SMP' => 3,
-            'SMA/SMK' => 3,
-            'D1' => 1,
-            'D2' => 2,
-            'D3' => 3,
-            'D4/S1' => 4,
-            'S2' => 2,
-            'S3' => 3,
-        ];
-
-        return $durations[$level] ?? 4;
-    }
 } 
