@@ -4,10 +4,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import { useState } from 'react';
+import { ChevronDown, ChevronUp, X } from 'lucide-react';
 
 interface JobProps {
     job: {
@@ -54,6 +56,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 export default function EditJob({ job, companies, departments, majors, questionPacks, educationLevels, vacancyTypes }: JobProps) {
     const [isLoading, setIsLoading] = useState(false);
     const [majorSearchQuery, setMajorSearchQuery] = useState<string>("");
+    const [isMajorDropdownOpen, setIsMajorDropdownOpen] = useState<boolean>(false);
     const [selectedMajorIds, setSelectedMajorIds] = useState<number[]>(
         job.majors && job.majors.length > 0 
             ? job.majors.map(m => m.id) 
@@ -218,13 +221,13 @@ export default function EditJob({ job, companies, departments, majors, questionP
                                     </div>
 
                                     <div>
-                                        <Label htmlFor="salary">Salary</Label>
+                                        <Label htmlFor="salary">Salary (Optional)</Label>
                                         <Input
                                             id="salary"
                                             name="salary"
                                             value={formData.salary}
                                             onChange={handleChange}
-                                            placeholder="Enter salary range or amount"
+                                            placeholder="Enter salary range or amount (leave empty if not specified)"
                                         />
                                     </div>
                                 </div>
@@ -253,64 +256,107 @@ export default function EditJob({ job, companies, departments, majors, questionP
                                     <div>
                                         <Label htmlFor="major_id">Major (Bisa pilih lebih dari satu)</Label>
                                         <div className="space-y-2">
-                                            <Input
-                                                type="text"
-                                                placeholder="Cari major..."
-                                                value={majorSearchQuery}
-                                                onChange={(e) => setMajorSearchQuery(e.target.value)}
-                                                className="w-full"
-                                            />
-                                            <div className="border rounded-md p-3 min-h-[42px] max-h-[200px] overflow-y-auto">
-                                                {(() => {
-                                                    const filteredMajors = majorSearchQuery.trim()
-                                                        ? majors.filter(major => 
-                                                            major.name.toLowerCase().includes(majorSearchQuery.toLowerCase())
-                                                        )
-                                                        : majors;
-                                                    
-                                                    if (filteredMajors.length === 0) {
+                                            {/* Selected Majors Display */}
+                                            {selectedMajorIds.length > 0 && (
+                                                <div className="flex flex-wrap gap-2 p-2 border rounded-md min-h-[42px]">
+                                                    {selectedMajorIds.map((majorId: number) => {
+                                                        const major = majors.find(m => m.id === majorId);
+                                                        if (!major) return null;
                                                         return (
-                                                            <p className="text-sm text-gray-500">
-                                                                {majorSearchQuery.trim() ? 'No majors found' : 'No majors available'}
-                                                            </p>
+                                                            <Badge
+                                                                key={majorId}
+                                                                variant="secondary"
+                                                                className="flex items-center gap-1 pr-1"
+                                                            >
+                                                                <span>{major.name}</span>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        setSelectedMajorIds(selectedMajorIds.filter(id => id !== majorId));
+                                                                    }}
+                                                                    className="ml-1 hover:bg-gray-300 rounded-full p-0.5"
+                                                                >
+                                                                    <X className="h-3 w-3" />
+                                                                </button>
+                                                            </Badge>
                                                         );
-                                                    }
-                                                    
-                                                    return (
-                                                        <div className="space-y-2">
-                                                            {filteredMajors.map((major) => {
-                                                                const isSelected = selectedMajorIds.includes(major.id);
+                                                    })}
+                                                </div>
+                                            )}
+                                            
+                                            {/* Dropdown Toggle Button */}
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={() => setIsMajorDropdownOpen(!isMajorDropdownOpen)}
+                                                className="w-full justify-between"
+                                            >
+                                                <span>{isMajorDropdownOpen ? 'Sembunyikan' : 'Tampilkan'} Daftar Major</span>
+                                                {isMajorDropdownOpen ? (
+                                                    <ChevronUp className="h-4 w-4" />
+                                                ) : (
+                                                    <ChevronDown className="h-4 w-4" />
+                                                )}
+                                            </Button>
+                                            
+                                            {/* Dropdown Content */}
+                                            {isMajorDropdownOpen && (
+                                                <div className="space-y-2">
+                                                    <Input
+                                                        type="text"
+                                                        placeholder="Cari major..."
+                                                        value={majorSearchQuery}
+                                                        onChange={(e) => setMajorSearchQuery(e.target.value)}
+                                                        className="w-full"
+                                                    />
+                                                    <div className="border rounded-md p-3 min-h-[42px] max-h-[200px] overflow-y-auto">
+                                                        {(() => {
+                                                            const filteredMajors = majorSearchQuery.trim()
+                                                                ? majors.filter(major => 
+                                                                    major.name.toLowerCase().includes(majorSearchQuery.toLowerCase())
+                                                                )
+                                                                : majors;
+                                                            
+                                                            if (filteredMajors.length === 0) {
                                                                 return (
-                                                                    <label
-                                                                        key={major.id}
-                                                                        className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded"
-                                                                    >
-                                                                        <input
-                                                                            type="checkbox"
-                                                                            checked={isSelected}
-                                                                            onChange={(e) => {
-                                                                                if (e.target.checked) {
-                                                                                    setSelectedMajorIds([...selectedMajorIds, major.id]);
-                                                                                } else {
-                                                                                    setSelectedMajorIds(selectedMajorIds.filter(id => id !== major.id));
-                                                                                }
-                                                                            }}
-                                                                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                                                                        />
-                                                                        <span className="text-sm">{major.name}</span>
-                                                                    </label>
+                                                                    <p className="text-sm text-gray-500">
+                                                                        {majorSearchQuery.trim() ? 'No majors found' : 'No majors available'}
+                                                                    </p>
                                                                 );
-                                                            })}
-                                                        </div>
-                                                    );
-                                                })()}
-                                            </div>
+                                                            }
+                                                            
+                                                            return (
+                                                                <div className="space-y-2">
+                                                                    {filteredMajors.map((major) => {
+                                                                        const isSelected = selectedMajorIds.includes(major.id);
+                                                                        return (
+                                                                            <label
+                                                                                key={major.id}
+                                                                                className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded"
+                                                                            >
+                                                                                <input
+                                                                                    type="checkbox"
+                                                                                    checked={isSelected}
+                                                                                    onChange={(e) => {
+                                                                                        if (e.target.checked) {
+                                                                                            setSelectedMajorIds([...selectedMajorIds, major.id]);
+                                                                                        } else {
+                                                                                            setSelectedMajorIds(selectedMajorIds.filter(id => id !== major.id));
+                                                                                        }
+                                                                                    }}
+                                                                                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                                                                />
+                                                                                <span className="text-sm">{major.name}</span>
+                                                                            </label>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            );
+                                                        })()}
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
-                                        {selectedMajorIds.length > 0 && (
-                                            <p className="text-xs text-gray-500 mt-1">
-                                                {selectedMajorIds.length} major(s) selected
-                                            </p>
-                                        )}
                                     </div>
 
                                     <div>
