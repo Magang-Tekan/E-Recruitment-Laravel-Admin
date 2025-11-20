@@ -16,6 +16,8 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
 class CompanyController extends Controller
 {
@@ -656,5 +658,272 @@ class CompanyController extends Controller
 
         return redirect()->route('company.interview', ['company' => $companyId, 'period' => $periodId])
             ->with('success', 'Candidate has been rejected.');
+    }
+
+    /**
+     * Show candidates for a company with period filter
+     */
+    public function candidates(Company $company, Request $request)
+    {
+        try {
+            $periodId = $request->query('period');
+            $search = $request->query('search', '');
+            $perPage = $request->query('per_page', 10);
+            $page = $request->query('page', 1);
+
+        // Get open periods for this company
+        $now = Carbon::now();
+        $openPeriods = Period::whereHas('vacancies', function ($query) use ($company) {
+            $query->where('company_id', $company->id);
+        })
+        ->get()
+        ->filter(function ($period) use ($now) {
+            // Only include periods that are currently open
+            if (!$period->start_time || !$period->end_time) {
+                return false; // Exclude periods without dates
+            }
+            
+            $startTime = Carbon::parse($period->start_time);
+            $endTime = Carbon::parse($period->end_time);
+            
+            // Period is open if current time is between start and end
+            return $now->gte($startTime) && $now->lte($endTime);
+        })
+        ->map(function ($period) {
+            return [
+                'id' => $period->id,
+                'name' => $period->name,
+                'status' => 'Open',
+            ];
+        })
+        ->values();
+
+        // Build query for applications
+        $query = Application::with([
+            'user.candidatesProfile',
+            'vacancyPeriod.vacancy',
+            'vacancyPeriod.period',
+            'history' => function ($q) {
+                $q->with('status')->latest();
+            },
+            'status'
+        ])
+        ->whereHas('vacancyPeriod.vacancy', function ($q) use ($company) {
+            $q->where('company_id', $company->id);
+        });
+
+        // Filter by period if provided
+        if ($periodId) {
+            $query->whereHas('vacancyPeriod', function ($q) use ($periodId) {
+                $q->where('period_id', $periodId);
+            });
+        }
+
+        // Search filter
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->whereHas('user', function ($userQuery) use ($search) {
+                    $userQuery->where('name', 'like', "%{$search}%")
+                              ->orWhere('email', 'like', "%{$search}%");
+                })
+                ->orWhereHas('vacancyPeriod.vacancy', function ($vacancyQuery) use ($search) {
+                    $vacancyQuery->where('title', 'like', "%{$search}%");
+                });
+            });
+        }
+
+        // Paginate
+        $applications = $query->orderBy('created_at', 'desc')
+            ->paginate($perPage, ['*'], 'page', $page);
+
+        // Format data for frontend
+        $candidates = $applications->getCollection()->map(function ($application, $index) use ($applications) {
+            $user = $application->user;
+            if (!$user) {
+                return null;
+            }
+            
+            $profile = $user->candidatesProfile ?? null;
+            $vacancy = $application->vacancyPeriod->vacancy ?? null;
+            $period = $application->vacancyPeriod->period ?? null;
+            
+            // Get last stage from history
+            $lastHistory = $application->history->first();
+            $lastStageName = '-';
+            if ($lastHistory && $lastHistory->status) {
+                $lastStageName = $lastHistory->status->name ?? '-';
+            }
+            
+            // Determine status
+            $statusCode = $application->status ? $application->status->code : 'pending';
+            $statusName = 'Proses Recruitment';
+            if ($statusCode === 'accepted') {
+                $statusName = 'Accepted';
+            } elseif ($statusCode === 'rejected') {
+                $statusName = 'Rejected';
+            } elseif (in_array($statusCode, ['admin_selection', 'psychotest', 'interview'])) {
+                $statusName = 'Proses Recruitment';
+            }
+
+            return [
+                'no' => ($applications->currentPage() - 1) * $applications->perPage() + $index + 1,
+                'id' => $application->id,
+                'name' => $user->name ?? '-',
+                'period' => $period ? $period->name : '-',
+                'date_of_birth' => $profile && $profile->date_of_birth 
+                    ? Carbon::parse($profile->date_of_birth)->format('d/m/Y') 
+                    : '-',
+                'address' => $profile && $profile->address ? $profile->address : '-',
+                'position' => $vacancy ? $vacancy->title : '-',
+                'last_stage' => $lastStageName,
+                'status' => $statusName,
+            ];
+        })->filter(); // Remove null entries
+
+        return Inertia::render('admin/company/candidates', [
+            'company' => [
+                'id' => $company->id,
+                'name' => $company->name,
+            ],
+            'periods' => $openPeriods->toArray(),
+            'selectedPeriod' => $periodId ? (int)$periodId : null,
+            'candidates' => $candidates->values()->toArray(),
+            'pagination' => [
+                'total' => $applications->total(),
+                'per_page' => $applications->perPage(),
+                'current_page' => $applications->currentPage(),
+                'last_page' => $applications->lastPage(),
+            ],
+            'filters' => [
+                'search' => $search,
+                'period' => $periodId ? (int)$periodId : null,
+            ],
+        ]);
+        } catch (\Exception $e) {
+            Log::error('Error in CompanyController@candidates: ' . $e->getMessage(), [
+                'company_id' => $company->id,
+                'exception' => $e
+            ]);
+            
+            return Inertia::render('admin/company/candidates', [
+                'company' => [
+                    'id' => $company->id,
+                    'name' => $company->name,
+                ],
+                'periods' => [],
+                'selectedPeriod' => null,
+                'candidates' => [],
+                'pagination' => [
+                    'total' => 0,
+                    'per_page' => 10,
+                    'current_page' => 1,
+                    'last_page' => 1,
+                ],
+                'filters' => [
+                    'search' => '',
+                    'period' => null,
+                ],
+                'error' => 'Terjadi kesalahan saat memuat data. Silakan coba lagi.',
+            ]);
+        }
+    }
+
+    /**
+     * Export candidates to Excel/CSV
+     */
+    public function exportCandidates(Company $company, Request $request)
+    {
+        $periodId = $request->query('period');
+        $format = $request->query('format', 'csv');
+
+        // Build query for applications
+        $query = Application::with([
+            'user.candidatesProfile',
+            'vacancyPeriod.vacancy',
+            'vacancyPeriod.period',
+            'history' => function ($q) {
+                $q->with('status')->latest();
+            },
+            'status'
+        ])
+        ->whereHas('vacancyPeriod.vacancy', function ($q) use ($company) {
+            $q->where('company_id', $company->id);
+        });
+
+        // Filter by period if provided
+        if ($periodId) {
+            $query->whereHas('vacancyPeriod', function ($q) use ($periodId) {
+                $q->where('period_id', $periodId);
+            });
+        }
+
+        $applications = $query->orderBy('created_at', 'desc')->get();
+
+        $filename = 'Kandidat_' . str_replace(' ', '_', $company->name) . '_' . date('Y-m-d_H-i-s') . '.csv';
+
+        $headers = [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ];
+
+        $callback = function() use ($applications) {
+            $file = fopen('php://output', 'w');
+            
+            // Add BOM for UTF-8
+            fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
+            
+            // Headers
+            fputcsv($file, [
+                'No',
+                'Nama',
+                'Periode',
+                'Tanggal Lahir',
+                'Alamat',
+                'Posisi yang Dilamar',
+                'Tahap Terakhir',
+                'Status'
+            ]);
+            
+            // Data
+            $no = 1;
+            foreach ($applications as $application) {
+                $user = $application->user;
+                $profile = $user->candidatesProfile;
+                $vacancy = $application->vacancyPeriod->vacancy ?? null;
+                $period = $application->vacancyPeriod->period ?? null;
+                
+                // Get last stage from history
+                $lastHistory = $application->history->first();
+                $lastStageName = $lastHistory ? $lastHistory->status->name : '-';
+                
+                // Determine status
+                $statusCode = $application->status ? $application->status->code : 'pending';
+                $statusName = 'Proses Recruitment';
+                if ($statusCode === 'accepted') {
+                    $statusName = 'Accepted';
+                } elseif ($statusCode === 'rejected') {
+                    $statusName = 'Rejected';
+                } elseif (in_array($statusCode, ['admin_selection', 'psychotest', 'interview'])) {
+                    $statusName = 'Proses Recruitment';
+                }
+                
+                fputcsv($file, [
+                    $no++,
+                    $user->name,
+                    $period ? $period->name : '-',
+                    $profile && $profile->date_of_birth 
+                        ? Carbon::parse($profile->date_of_birth)->format('d/m/Y') 
+                        : '-',
+                    $profile ? $profile->address : '-',
+                    $vacancy ? $vacancy->title : '-',
+                    $lastStageName,
+                    $statusName,
+                ]);
+            }
+            
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
     }
 }

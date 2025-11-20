@@ -14,6 +14,7 @@ class QuestionSeeder extends Seeder
     public function run(): void
     {
         $questions = [
+            // 5 Multiple Choice Questions
             [
                 'question_text' => 'Apa yang membuat Anda tertarik untuk melamar posisi ini?',
                 'question_type' => 'multiple_choice'
@@ -34,6 +35,7 @@ class QuestionSeeder extends Seeder
                 'question_text' => 'Apa kepanjangan dari HTML?',
                 'question_type' => 'multiple_choice'
             ],
+            // 5 Essay Questions
             [
                 'question_text' => 'Jelaskan pengalaman Anda dalam bekerja dengan tim dan bagaimana Anda berkontribusi untuk mencapai tujuan tim.',
                 'question_type' => 'essay'
@@ -44,6 +46,14 @@ class QuestionSeeder extends Seeder
             ],
             [
                 'question_text' => 'Apa yang menjadi motivasi utama Anda dalam bekerja? Jelaskan dengan singkat.',
+                'question_type' => 'essay'
+            ],
+            [
+                'question_text' => 'Jelaskan bagaimana Anda mengelola waktu dan prioritas dalam menyelesaikan tugas-tugas yang diberikan.',
+                'question_type' => 'essay'
+            ],
+            [
+                'question_text' => 'Apa yang Anda ketahui tentang perusahaan kami dan mengapa Anda ingin bergabung?',
                 'question_type' => 'essay'
             ]
         ];
@@ -105,6 +115,14 @@ class QuestionSeeder extends Seeder
             ],
             [
                 'question' => $questions[7],
+                'choices' => []
+            ],
+            [
+                'question' => $questions[8],
+                'choices' => []
+            ],
+            [
+                'question' => $questions[9],
                 'choices' => []
             ]
         ];

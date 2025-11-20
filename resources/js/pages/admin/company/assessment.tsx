@@ -53,37 +53,56 @@ export default function Assessment({ candidates, filters, companyInfo, periodInf
 
     const getReviewStatus = (candidate: ApplicationInfo) => {
         // Find specific assessment/psychological test history entry
-        const assessmentHistory = candidate.history?.find(h => 
+        // Get the most recent one (when test is submitted, status might be 'assessment', 'psychotest', etc.)
+        const allAssessmentHistories = candidate.history?.filter(h => 
+            h.stage === 'psychological_test' || 
+            h.status_code === 'psychotest' ||
+            h.status_code === 'psychological_test' ||
+            h.status_code === 'assessment'
+        ) || [];
+        
+        // Sort by processed_at descending to get the most recent one
+        const sortedHistories = [...allAssessmentHistories].sort((a, b) => {
+            const dateA = a.processed_at ? new Date(a.processed_at).getTime() : 0;
+            const dateB = b.processed_at ? new Date(b.processed_at).getTime() : 0;
+            return dateB - dateA; // Descending order (newest first)
+        });
+        
+        const assessmentHistory = sortedHistories.length > 0 ? sortedHistories[0] : null;
+        
+        // Check if admin has given score (this is the indicator that admin has reviewed)
+        // Score must exist and be a valid number (not null, not undefined, not empty)
+        const hasScore = assessmentHistory?.score !== null && 
+            assessmentHistory?.score !== undefined &&
+            assessmentHistory?.score !== '' &&
+            !isNaN(Number(assessmentHistory.score));
+        
+        // Check if test has been started
+        const testStarted = assessmentHistory?.processed_at !== null && 
+            assessmentHistory?.processed_at !== undefined;
+        
+        // PRIORITY 9: Fix "Not Started" Status - check if candidate is in assessment stage
+        // Check if candidate has been assigned to assessment stage (has assessment history or status)
+        const isInAssessmentStage = candidate.history?.some(h => 
             h.stage === 'psychological_test' || 
             h.status_code === 'psychotest' ||
             h.status_code === 'psychological_test'
-        );
-        
-        
-        // Check if assessment test is completed (candidate has taken the test)
-        const testCompleted = assessmentHistory?.completed_at !== null && assessmentHistory?.completed_at !== undefined;
-        
-        // Check if manual review has been done (has score AND reviewer)
-        const hasManualReview = (
-            assessmentHistory?.score !== null && 
-            assessmentHistory?.score !== undefined &&
-            assessmentHistory?.reviewer_name !== null && 
-            assessmentHistory?.reviewer_name !== undefined
-        );
+        ) || candidate.status_code === 'psychotest';
         
         // Logic:
-        // 1. If manual review is done -> Reviewed
-        // 2. If test completed but no manual review -> Pending Review  
-        // 3. If test started but not completed -> In Progress (show as pending)
-        // 4. If no test history -> Not Started
+        // 1. If has score -> Reviewed (admin has given score/nilai, meaning reviewed)
+        // 2. If test started but no score -> Pending Review (waiting for admin to give score)
+        // 3. If in assessment stage but not started -> Not Started
+        // 4. If not in assessment stage -> Not Started (shouldn't appear in list, but handle gracefully)
         
-        if (hasManualReview) {
+        if (hasScore) {
             return { status: 'reviewed', icon: CheckCircle, color: 'bg-green-100 text-green-800 border-green-200' };
-        } else if (testCompleted) {
+        } else if (testStarted) {
             return { status: 'pending', icon: Clock, color: 'bg-yellow-100 text-yellow-800 border-yellow-200' };
-        } else if (assessmentHistory?.processed_at) {
-            return { status: 'pending', icon: Clock, color: 'bg-yellow-100 text-yellow-800 border-yellow-200' };
+        } else if (isInAssessmentStage) {
+            return { status: 'not_started', icon: XCircle, color: 'bg-gray-100 text-gray-800 border-gray-200' };
         } else {
+            // Not in assessment stage yet - should not appear in list, but handle gracefully
             return { status: 'not_started', icon: XCircle, color: 'bg-gray-100 text-gray-800 border-gray-200' };
         }
     };
@@ -285,86 +304,39 @@ export default function Assessment({ candidates, filters, companyInfo, periodInf
                                                         <td className="p-4">{duration}</td>
                                                         <td className="p-4 font-medium">
                                                             {(() => {
-                                                                // Check if this is a psychological test using question pack data
-                                                                const isPsychologicalTest = (() => {
-                                                                    const questionPack = candidate?.vacancy_period?.vacancy?.question_pack;
-                                                                    
-                                                                    if (questionPack && questionPack.test_type) {
-                                                                        const psychologicalTestTypes = ['psychological', 'psychology', 'psikologi'];
-                                                                        return psychologicalTestTypes.includes(String(questionPack.test_type).toLowerCase());
-                                                                    }
-                                                                    
-                                                                    // Fallback: check vacancy title for psychology keywords
-                                                                    const vacancyTitle = candidate?.vacancy_period?.vacancy?.title || '';
-                                                                    const psychologicalKeywords = ['psikologi', 'psychology', 'psychological'];
-                                                                    
-                                                                    return psychologicalKeywords.some(keyword => 
-                                                                        vacancyTitle.toLowerCase().includes(keyword)
-                                                                    );
-                                                                })();
-
-                                                                // For psychological tests, only show manual score (from history after manual scoring)
-                                                                if (isPsychologicalTest) {
-                                                                    // Find assessment history entry specifically
-                                                                    const assessmentHistory = candidate.history?.find(h => 
-                                                                        h.stage === 'psychological_test' || 
-                                                                        h.status_code === 'psychotest' ||
-                                                                        h.status_code === 'psychological_test'
-                                                                    );
-                                                                    const manualScore = assessmentHistory?.score;
-                                                                    
-                                                                    if (manualScore !== null && manualScore !== undefined) {
-                                                                        return (
-                                                                            <span className="text-blue-700">
-                                                                                {Number(manualScore).toFixed(2)}
-                                                                            </span>
-                                                                        );
-                                                                    }
-                                                                    // No score shown until manual scoring is done
-                                                                    return <span className="text-gray-400">-</span>;
-                                                                }
-
-                                                                // For non-psychological tests (technical/general), show calculated scores
-                                                                // Check for manual score from history first (from assessment history specifically)
+                                                                // PRIORITY 5: Fix Score Display - simplify logic, use single source of truth (history score)
+                                                                // Find assessment history entry
                                                                 const assessmentHistory = candidate.history?.find(h => 
                                                                     h.stage === 'psychological_test' || 
                                                                     h.status_code === 'psychotest' ||
                                                                     h.status_code === 'psychological_test'
                                                                 );
-                                                                const manualScore = assessmentHistory?.score;
-                                                                if (manualScore !== null && manualScore !== undefined) {
+                                                                
+                                                                // Always use history score if available (single source of truth)
+                                                                const historyScore = assessmentHistory?.score;
+                                                                if (historyScore !== null && historyScore !== undefined && historyScore !== '' && !isNaN(Number(historyScore))) {
                                                                     return (
                                                                         <span className="text-blue-700">
-                                                                            {Number(manualScore).toFixed(2)}
+                                                                            {Number(historyScore).toFixed(2)}
                                                                         </span>
                                                                     );
                                                                 }
-                                                                // Check for calculated assessment score (from calculateTestScore)
-                                                                // Note: calculateTestScore returns null if essay questions are not all scored
-                                                                if (candidate.assessment?.total_score !== null && candidate.assessment?.total_score !== undefined) {
-                                                                    return (
-                                                                        <span className="text-green-700">
-                                                                            {Number(candidate.assessment.total_score).toFixed(2)}
-                                                                        </span>
-                                                                    );
-                                                                }
-                                                                // If total_score is null, it means essay questions need scoring
-                                                                if (candidate.assessment?.total_score === null) {
+                                                                
+                                                                // If no history score, check if test has been started
+                                                                const testStarted = assessmentHistory?.processed_at !== null && 
+                                                                    assessmentHistory?.processed_at !== undefined;
+                                                                
+                                                                if (testStarted) {
+                                                                    // Test started but no score yet - show pending
                                                                     return (
                                                                         <span className="text-amber-600">
                                                                             Pending
                                                                         </span>
                                                                     );
                                                                 }
-                                                                // Fallback to overall score from report
-                                                                if (candidate.report?.overall_score) {
-                                                                    return (
-                                                                        <span className="text-orange-700">
-                                                                            {Number(candidate.report.overall_score).toFixed(2)}
-                                                                        </span>
-                                                                    );
-                                                                }
-                                                                return '-';
+                                                                
+                                                                // No test started
+                                                                return <span className="text-gray-400">-</span>;
                                                             })()}
                                                         </td>
                                                         <td className="p-4">

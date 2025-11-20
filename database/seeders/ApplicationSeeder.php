@@ -22,53 +22,52 @@ class ApplicationSeeder extends Seeder
         ApplicationHistory::query()->delete();
         Application::query()->delete();
 
-        // Get only specific candidates: 'Candidate User', 'Candidate User 2', and 'userbiasa'
-        $specificCandidates = User::where('role', UserRole::CANDIDATE)
-            ->whereIn('name', ['Candidate User', 'Candidate User 2', 'userbiasa'])
-            ->get();
+        // Get candidates
+        $budiSantoso = User::where('role', UserRole::CANDIDATE)
+            ->where(function($query) {
+                $query->where('name', 'Budi Santoso')
+                      ->orWhere('email', 'budi.santoso@gmail.com');
+            })
+            ->first();
+
+        if ($budiSantoso) {
+            $this->command->info('Found Budi Santoso user: ID=' . $budiSantoso->id . ', Email=' . $budiSantoso->email);
+        } else {
+            $this->command->warn('Budi Santoso user NOT FOUND! Make sure UserSeeder has been run.');
+        }
+
+        // Get user with Teknik Informatika education for Software Engineer
+        $softwareEngineerCandidate = User::where('role', UserRole::CANDIDATE)
+            ->where(function($query) {
+                $query->where('email', 'ahmad.fauzi@gmail.com')
+                      ->orWhere('name', 'Ahmad Fauzi');
+            })
+            ->first();
+
+        if ($softwareEngineerCandidate) {
+            $this->command->info('Found Ahmad Fauzi user: ID=' . $softwareEngineerCandidate->id . ', Email=' . $softwareEngineerCandidate->email);
+        } else {
+            $this->command->warn('Ahmad Fauzi user NOT FOUND! Make sure UserSeeder has been run.');
+        }
+
+        // Get John Doe for Software Engineer application
+        $johnDoe = User::where('role', UserRole::CANDIDATE)
+            ->where(function($query) {
+                $query->where('email', 'john.doe@example.com')
+                      ->orWhere('name', 'John Doe');
+            })
+            ->first();
+
+        if ($johnDoe) {
+            $this->command->info('Found John Doe user: ID=' . $johnDoe->id . ', Email=' . $johnDoe->email);
+        } else {
+            $this->command->warn('John Doe user NOT FOUND! Make sure UserSeeder has been run.');
+        }
 
         $statuses = Status::all();
 
-        if ($specificCandidates->count() < 3) {
-            $this->command->info('Required candidates not found. Make sure these users exist:');
-            $this->command->info('- Candidate User');
-            $this->command->info('- Candidate User 2'); 
-            $this->command->info('- userbiasa');
-            return;
-        }
-
         if ($statuses->isEmpty()) {
             $this->command->info('No statuses found. Run migration or StatusSeeder first.');
-            return;
-        }
-
-        // Get Software Engineer and Data Analyst OPEN periods for psychological test
-        $currentDate = Carbon::now();
-        
-        // Get Software Engineer periods
-        $softwareEngineerPeriods = VacancyPeriods::with(['vacancy.company', 'vacancy.department', 'vacancy.questionPack', 'period'])
-            ->whereHas('vacancy', function($query) {
-                $query->where('title', 'Software Engineer');
-            })
-            ->whereHas('period', function($query) use ($currentDate) {
-                $query->where('start_time', '<=', $currentDate)
-                      ->where('end_time', '>=', $currentDate);
-            })
-            ->get();
-            
-        // Get Data Analyst periods
-        $dataAnalystPeriods = VacancyPeriods::with(['vacancy.company', 'vacancy.department', 'vacancy.questionPack', 'period'])
-            ->whereHas('vacancy', function($query) {
-                $query->where('title', 'Data Analyst');
-            })
-            ->whereHas('period', function($query) use ($currentDate) {
-                $query->where('start_time', '<=', $currentDate)
-                      ->where('end_time', '>=', $currentDate);
-            })
-            ->get();
-
-        if ($softwareEngineerPeriods->isEmpty() && $dataAnalystPeriods->isEmpty()) {
-            $this->command->info('No open Software Engineer or Data Analyst vacancy periods found.');
             return;
         }
 
@@ -78,71 +77,234 @@ class ApplicationSeeder extends Seeder
         $acceptedStatus = $statuses->where('code', 'accepted')->first();
         $rejectedStatus = $statuses->where('code', 'rejected')->first();
 
-        $this->command->info('Creating applications for 3 specific candidates...');
+        // Get INTERNSHIP OPEN periods only (must be currently active)
+        $currentDate = Carbon::now();
+        
+        $internshipPeriods = VacancyPeriods::with(['vacancy.company', 'vacancy.department', 'vacancy.questionPack', 'period'])
+            ->whereHas('vacancy', function($query) {
+                $query->where('title', 'INTERNSHIP');
+            })
+            ->whereHas('period', function($query) use ($currentDate) {
+                $query->where('start_time', '<=', $currentDate)
+                      ->where('end_time', '>=', $currentDate);
+            })
+            ->get();
 
-        // Create applications for the 3 specific candidates with specific job assignments
-        foreach ($specificCandidates as $index => $candidate) {
-            $selectedVacancyPeriod = null;
+        if ($internshipPeriods->isEmpty()) {
+            $this->command->warn('WARNING: No OPEN INTERNSHIP periods found! Make sure there is an active period (start_time <= now <= end_time).');
+            $this->command->warn('Current date: ' . $currentDate->format('Y-m-d H:i:s'));
+            $this->command->warn('Skipping INTERNSHIP applications - they will not be created.');
             
-            // Assign specific vacancies based on candidate name
-            if ($candidate->name === 'Candidate User 2') {
-                // Candidate User 2 applies to Data Analyst
-                if (!$dataAnalystPeriods->isEmpty()) {
-                    $selectedVacancyPeriod = $dataAnalystPeriods->first();
-                    $this->command->info("Assigning {$candidate->name} to Data Analyst position");
+            // Debug: Check if INTERNSHIP vacancy exists
+            $internshipVacancy = \App\Models\Vacancies::where('title', 'INTERNSHIP')->first();
+            if ($internshipVacancy) {
+                $this->command->info('INTERNSHIP vacancy exists (ID: ' . $internshipVacancy->id . ')');
+                // Check all periods for this vacancy
+                $allInternshipPeriods = VacancyPeriods::with('period')
+                    ->where('vacancy_id', $internshipVacancy->id)
+                    ->get();
+                if ($allInternshipPeriods->isEmpty()) {
+                    $this->command->warn('INTERNSHIP has NO periods assigned! Run VacancyPeriodsSeeder.');
+                } else {
+                    $this->command->info('INTERNSHIP has ' . $allInternshipPeriods->count() . ' period(s) assigned:');
+                    foreach ($allInternshipPeriods as $vp) {
+                        $period = $vp->period;
+                        $isOpen = $period && 
+                                 $period->start_time <= $currentDate && 
+                                 $period->end_time >= $currentDate;
+                        $this->command->info('  - Period ID ' . $period->id . ': ' . $period->name . 
+                                           ' (' . $period->start_time . ' to ' . $period->end_time . ') - ' . 
+                                           ($isOpen ? 'OPEN' : 'CLOSED'));
+                    }
                 }
             } else {
-                // Other candidates apply to Software Engineer
-                if (!$softwareEngineerPeriods->isEmpty()) {
-                    $selectedVacancyPeriod = $softwareEngineerPeriods->random(1)->first();
-                    $this->command->info("Assigning {$candidate->name} to Software Engineer position");
-                }
+                $this->command->warn('INTERNSHIP vacancy NOT FOUND! Run VacanciesSeeder.');
             }
-            
-            if (!$selectedVacancyPeriod) {
-                $this->command->info("No suitable vacancy period found for {$candidate->name}");
-                continue;
+        } else {
+            $this->command->info('Found ' . $internshipPeriods->count() . ' OPEN INTERNSHIP period(s).');
+            foreach ($internshipPeriods as $vp) {
+                $this->command->info('  - Period: ' . $vp->period->name . ' (ID: ' . $vp->period->id . ')');
             }
+        }
 
-            // Check if this combination already exists to avoid duplicates
-            $existingApplication = Application::where('user_id', $candidate->id)
+        // Get Software Engineer OPEN periods only (must be currently active)
+        $softwareEngineerPeriods = VacancyPeriods::with(['vacancy.company', 'vacancy.department', 'vacancy.questionPack', 'period'])
+            ->whereHas('vacancy', function($query) {
+                $query->where('title', 'Software Engineer');
+            })
+            ->whereHas('period', function($query) use ($currentDate) {
+                $query->where('start_time', '<=', $currentDate)
+                      ->where('end_time', '>=', $currentDate);
+            })
+            ->get();
+
+        if ($softwareEngineerPeriods->isEmpty()) {
+            $this->command->warn('WARNING: No OPEN Software Engineer periods found! Make sure there is an active period (start_time <= now <= end_time).');
+            $this->command->warn('Current date: ' . $currentDate->format('Y-m-d H:i:s'));
+            $this->command->warn('Skipping Software Engineer applications - they will not be created.');
+            
+            // Debug: Check if Software Engineer vacancy exists
+            $seVacancy = \App\Models\Vacancies::where('title', 'Software Engineer')->first();
+            if ($seVacancy) {
+                $this->command->info('Software Engineer vacancy exists (ID: ' . $seVacancy->id . ')');
+                // Check all periods for this vacancy
+                $allSEPeriods = VacancyPeriods::with('period')
+                    ->where('vacancy_id', $seVacancy->id)
+                    ->get();
+                if ($allSEPeriods->isEmpty()) {
+                    $this->command->warn('Software Engineer has NO periods assigned! Run VacancyPeriodsSeeder.');
+                } else {
+                    $this->command->info('Software Engineer has ' . $allSEPeriods->count() . ' period(s) assigned:');
+                    foreach ($allSEPeriods as $vp) {
+                        $period = $vp->period;
+                        $isOpen = $period && 
+                                 $period->start_time <= $currentDate && 
+                                 $period->end_time >= $currentDate;
+                        $this->command->info('  - Period ID ' . $period->id . ': ' . $period->name . 
+                                           ' (' . $period->start_time . ' to ' . $period->end_time . ') - ' . 
+                                           ($isOpen ? 'OPEN' : 'CLOSED'));
+                    }
+                }
+            } else {
+                $this->command->warn('Software Engineer vacancy NOT FOUND! Run VacanciesSeeder.');
+            }
+        } else {
+            $this->command->info('Found ' . $softwareEngineerPeriods->count() . ' OPEN Software Engineer period(s).');
+            foreach ($softwareEngineerPeriods as $vp) {
+                $this->command->info('  - Period: ' . $vp->period->name . ' (ID: ' . $vp->period->id . ')');
+            }
+        }
+
+        // Create application for Budi Santoso to INTERNSHIP
+        // Only create if there is an OPEN period
+        if ($budiSantoso && !$internshipPeriods->isEmpty()) {
+            $this->command->info('Creating application for Budi Santoso to INTERNSHIP...');
+            $selectedVacancyPeriod = $internshipPeriods->first();
+
+            $existingApplication = Application::where('user_id', $budiSantoso->id)
                 ->where('vacancy_period_id', $selectedVacancyPeriod->id)
                 ->first();
 
-            if ($existingApplication) {
-                $this->command->info("Skipping duplicate: {$candidate->name} -> {$selectedVacancyPeriod->vacancy->title}");
-                continue;
+            if (!$existingApplication) {
+                $application = Application::create([
+                    'user_id' => $budiSantoso->id,
+                    'vacancy_period_id' => $selectedVacancyPeriod->id,
+                    'status_id' => $adminSelectionStatus->id,
+                    'resume_path' => null,
+                    'cover_letter_path' => null,
+                    'created_at' => Carbon::now()->subDays(5),
+                ]);
+
+                $this->command->info("Created application for Budi Santoso -> INTERNSHIP");
+
+                $this->createRealisticRecruitmentFlow($application, [
+                    'admin_selection' => $adminSelectionStatus,
+                    'psychotest' => $psychotestStatus,
+                    'interview' => $interviewStatus,
+                    'accepted' => $acceptedStatus,
+                    'rejected' => $rejectedStatus,
+                ], 0, 1);
+            } else {
+                $this->command->info("Skipping duplicate: Budi Santoso -> INTERNSHIP");
             }
-
-            // Create the application
-            $application = Application::create([
-                'user_id' => $candidate->id,
-                'vacancy_period_id' => $selectedVacancyPeriod->id,
-                'status_id' => $adminSelectionStatus->id,
-                'resume_path' => null,
-                'cover_letter_path' => null,
-                'created_at' => Carbon::now()->subDays(rand(5, 15)),
-            ]);
-
-            $this->command->info("Created application for {$candidate->name} -> {$selectedVacancyPeriod->vacancy->title}");
-
-            // Create realistic recruitment flow for testing
-            $this->createRealisticRecruitmentFlow($application, [
-                'admin_selection' => $adminSelectionStatus,
-                'psychotest' => $psychotestStatus,
-                'interview' => $interviewStatus,
-                'accepted' => $acceptedStatus,
-                'rejected' => $rejectedStatus,
-            ], $index, $softwareEngineerPeriods->count());
+        } else {
+            if (!$budiSantoso) {
+                $this->command->warn('Budi Santoso user not found. Cannot create application.');
+            } elseif ($internshipPeriods->isEmpty()) {
+                $this->command->warn('No OPEN INTERNSHIP periods found. Cannot create application for Budi Santoso.');
+            }
         }
 
-        $this->command->info('Applications seeded successfully for 3 specific candidates!');
-        $this->command->info('Candidates applied to Software Engineer (Psychological Test):');
-        $this->command->info('- Candidate User');
-        $this->command->info('- Candidate User 2');
-        $this->command->info('- userbiasa');
-        $this->command->info('Flow: ALL applications in admin_selection stage with consistent dates');
-        $this->command->info('Ready for psychological test workflow testing');
+        // Create application for Ahmad Fauzi (Teknik Informatika) to Software Engineer
+        // Only create if there is an OPEN period
+        if ($softwareEngineerCandidate && !$softwareEngineerPeriods->isEmpty()) {
+            $this->command->info('Creating application for Ahmad Fauzi to Software Engineer...');
+            $selectedVacancyPeriod = $softwareEngineerPeriods->first();
+
+            $existingApplication = Application::where('user_id', $softwareEngineerCandidate->id)
+                ->where('vacancy_period_id', $selectedVacancyPeriod->id)
+                ->first();
+
+            if (!$existingApplication) {
+                $application = Application::create([
+                    'user_id' => $softwareEngineerCandidate->id,
+                    'vacancy_period_id' => $selectedVacancyPeriod->id,
+                    'status_id' => $adminSelectionStatus->id,
+                    'resume_path' => null,
+                    'cover_letter_path' => null,
+                    'created_at' => Carbon::now()->subDays(3),
+                ]);
+
+                $this->command->info("Created application for Ahmad Fauzi -> Software Engineer");
+
+                $this->createRealisticRecruitmentFlow($application, [
+                    'admin_selection' => $adminSelectionStatus,
+                    'psychotest' => $psychotestStatus,
+                    'interview' => $interviewStatus,
+                    'accepted' => $acceptedStatus,
+                    'rejected' => $rejectedStatus,
+                ], 0, 1);
+            } else {
+                $this->command->info("Skipping duplicate: Ahmad Fauzi -> Software Engineer");
+            }
+        } else {
+            if (!$softwareEngineerCandidate) {
+                $this->command->warn('Ahmad Fauzi user not found. Cannot create application.');
+            } elseif ($softwareEngineerPeriods->isEmpty()) {
+                $this->command->warn('No OPEN Software Engineer periods found. Cannot create application for Ahmad Fauzi.');
+            }
+        }
+
+        // Create application for John Doe (Teknik Informatika) to Software Engineer
+        // Only create if there is an OPEN period
+        if ($johnDoe && !$softwareEngineerPeriods->isEmpty()) {
+            $this->command->info('Creating application for John Doe to Software Engineer...');
+            $selectedVacancyPeriod = $softwareEngineerPeriods->first();
+
+            $existingApplication = Application::where('user_id', $johnDoe->id)
+                ->where('vacancy_period_id', $selectedVacancyPeriod->id)
+                ->first();
+
+            if (!$existingApplication) {
+                $application = Application::create([
+                    'user_id' => $johnDoe->id,
+                    'vacancy_period_id' => $selectedVacancyPeriod->id,
+                    'status_id' => $adminSelectionStatus->id,
+                    'resume_path' => null,
+                    'cover_letter_path' => null,
+                    'created_at' => Carbon::now()->subDays(2),
+                ]);
+
+                $this->command->info("Created application for John Doe -> Software Engineer");
+
+                $this->createRealisticRecruitmentFlow($application, [
+                    'admin_selection' => $adminSelectionStatus,
+                    'psychotest' => $psychotestStatus,
+                    'interview' => $interviewStatus,
+                    'accepted' => $acceptedStatus,
+                    'rejected' => $rejectedStatus,
+                ], 0, 1);
+            } else {
+                $this->command->info("Skipping duplicate: John Doe -> Software Engineer");
+            }
+        } else {
+            if (!$johnDoe) {
+                $this->command->warn('John Doe user not found. Cannot create application.');
+            } elseif ($softwareEngineerPeriods->isEmpty()) {
+                $this->command->warn('No OPEN Software Engineer periods found. Cannot create application for John Doe.');
+            }
+        }
+
+        $this->command->info('Applications seeded successfully!');
+        if ($budiSantoso) {
+            $this->command->info('- Budi Santoso applied to INTERNSHIP position');
+        }
+        if ($softwareEngineerCandidate) {
+            $this->command->info('- Ahmad Fauzi applied to Software Engineer position');
+        }
+        if ($johnDoe) {
+            $this->command->info('- John Doe applied to Software Engineer position');
+        }
     }
 
     /**

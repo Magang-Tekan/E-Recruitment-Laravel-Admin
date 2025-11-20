@@ -67,14 +67,34 @@ export default function Administration({ candidates, filters, companyInfo, perio
     };
 
     const getReviewStatus = (candidate: ApplicationInfo) => {
-        // Cek score dengan berbagai kemungkinan nilai
-        const hasScore = candidate.score != null && String(candidate.score).trim() !== '' && !Number.isNaN(Number(candidate.score as any));
-        const hasReviewer = candidate.reviewed_by != null && String(candidate.reviewed_by).trim() !== '';
+        // PRIORITY 1: Fix Review Status Logic - hanya cek hasScore (konsisten dengan assessment)
+        // Find specific administration history entry
+        const administrationHistory = candidate.history?.find(h => 
+            h.stage === 'administrative_selection' || h.status_code === 'admin_selection'
+        );
         
-        if (hasScore || hasReviewer) {
+        // Check if admin has given score (this is the indicator that admin has reviewed)
+        // Score must exist and be a valid number (not null, not undefined, not empty)
+        const hasScore = administrationHistory?.score !== null && 
+            administrationHistory?.score !== undefined &&
+            administrationHistory?.score !== '' &&
+            !isNaN(Number(administrationHistory.score));
+        
+        // Check if administration has been started
+        const hasStarted = administrationHistory?.processed_at !== null && 
+            administrationHistory?.processed_at !== undefined;
+        
+        // Logic:
+        // 1. If has score -> Reviewed (admin has given score/nilai, meaning reviewed)
+        // 2. If started but no score -> Pending Review (waiting for admin to give score)
+        // 3. If no history or not started -> Not Started
+        
+        if (hasScore) {
             return { status: 'reviewed', icon: CheckCircle, color: 'bg-green-100 text-green-800 border-green-200' };
-        } else {
+        } else if (hasStarted) {
             return { status: 'pending', icon: Clock, color: 'bg-yellow-100 text-yellow-800 border-yellow-200' };
+        } else {
+            return { status: 'not_started', icon: XCircle, color: 'bg-gray-100 text-gray-800 border-gray-200' };
         }
     };
 

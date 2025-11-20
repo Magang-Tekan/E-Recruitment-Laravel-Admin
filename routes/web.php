@@ -56,6 +56,8 @@ Route::middleware(['auth'])->group(function () {
             Route::put('/{company}', [CompanyController::class, 'update'])->name('update');
             Route::delete('/{company}', [CompanyController::class, 'destroy'])->name('destroy');
             Route::get('/{company}/periods', [CompanyController::class, 'periods'])->name('periods');
+            Route::get('/{company}/candidates', [CompanyController::class, 'candidates'])->name('candidates');
+            Route::get('/{company}/candidates/export', [CompanyController::class, 'exportCandidates'])->name('candidates.export');
             
             // Company-specific period routes
             Route::prefix('{company}/periods')->name('periods.')->group(function () {

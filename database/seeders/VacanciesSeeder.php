@@ -70,6 +70,32 @@ class VacanciesSeeder extends Seeder
         // Indonesian job vacancies data
         $vacanciesData = [
             [
+                'title' => 'INTERNSHIP',
+                'department' => 'Sumber Daya Manusia',
+                'major' => 'Akuntansi', // Will be set to accept multiple majors
+                'vacancy_type' => 'Full Time',
+                'location' => 'Jakarta',
+                'salary' => 'Rp. 2.000.000 - 3.500.000',
+                'education_level' => 'D4/S1',
+                'requirements' => [
+                    'Lulusan D4/S1 Akuntansi, Ekonomi Islam, atau Manajemen',
+                    'IPK minimal 3.00',
+                    'Fresh graduate atau maksimal 1 tahun pengalaman',
+                    'Memiliki kemampuan komunikasi yang baik',
+                    'Mampu bekerja dalam tim',
+                    'Bersedia magang selama 6 bulan'
+                ],
+                'benefits' => [
+                    'Uang saku bulanan',
+                    'Sertifikat magang',
+                    'Pengalaman kerja langsung',
+                    'Mentoring dari senior',
+                    'Kesempatan diangkat menjadi karyawan tetap',
+                    'Networking dengan profesional'
+                ],
+                'accepted_majors' => ['Akuntansi', 'Ekonomi Islam', 'Manajemen'] // For reference
+            ],
+            [
                 'title' => 'Software Engineer',
                 'department' => 'Teknologi Informasi',
                 'major' => 'Teknik Informatika',
@@ -78,13 +104,14 @@ class VacanciesSeeder extends Seeder
                 'salary' => 'Rp. 8.000.000 - 15.000.000',
                 'education_level' => 'D4/S1', // Minimum S1
                 'requirements' => [
-                    'Lulusan S1 Teknik Informatika atau Ilmu Komputer',
+                    'Lulusan D4/S1 Teknik Informatika atau Ilmu Komputer',
                     'Pengalaman minimal 2 tahun dalam pengembangan software',
                     'Menguasai bahasa pemrograman Java, Python, atau JavaScript',
                     'Familiar dengan framework seperti Spring, React, atau Angular',
                     'Memiliki kemampuan problem solving yang baik',
                     'Mampu bekerja dalam tim dan komunikatif'
                 ],
+                'accepted_majors' => ['Teknik Informatika', 'Ilmu Komputer'], // For reference
                 'benefits' => [
                     'Gaji kompetitif sesuai pengalaman',
                     'Asuransi kesehatan keluarga',
@@ -322,7 +349,13 @@ class VacanciesSeeder extends Seeder
             $company = $companies->random();
             
             // Assign specific question pack based on job title
-            if ($vacancyData['title'] === 'Software Engineer') {
+            if ($vacancyData['title'] === 'INTERNSHIP') {
+                // INTERNSHIP gets INTERNSHIP question pack
+                $questionPack = $questionPacks->where('pack_name', 'INTERNSHIP')->first();
+                if (!$questionPack) {
+                    $questionPack = $questionPacks->random();
+                }
+            } elseif ($vacancyData['title'] === 'Software Engineer') {
                 // Software Engineer gets psychological test question pack
                 $questionPack = $questionPacks->where('test_type', 'psychological')->first() 
                     ?? $questionPacks->where('test_type', 'psychology')->first()

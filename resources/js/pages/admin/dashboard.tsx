@@ -11,8 +11,10 @@ import {
     MessageSquare,
     AlertCircle,
     Loader2,
-    BarChart3
+    BarChart3,
+    Eye
 } from 'lucide-react';
+import { Link } from '@inertiajs/react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useEffect, useState } from 'react';
 
@@ -186,7 +188,16 @@ export default function Dashboard({
                         <Card key={index} className="hover:shadow-lg transition-shadow border-blue-200">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                                 <CardTitle className="text-sm font-medium">{company.name}</CardTitle>
-                            <Building2 className="h-4 w-4 text-blue-600" />
+                            <div className="flex items-center gap-2">
+                                <Building2 className="h-4 w-4 text-blue-600" />
+                                <Link 
+                                    href={`/dashboard/companies/${company.id}/candidates`}
+                                    className="text-blue-600 hover:text-blue-800 transition-colors"
+                                    title="Lihat Detail"
+                                >
+                                    <Eye className="h-4 w-4" />
+                                </Link>
+                            </div>
                         </CardHeader>
                         <CardContent>
                                 <div className="text-2xl font-bold text-blue-700">{company.applications}</div>
