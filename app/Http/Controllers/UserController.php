@@ -22,10 +22,11 @@ class UserController extends Controller
         $companyStats = Application::join('vacancy_periods', 'applications.vacancy_period_id', '=', 'vacancy_periods.id')
             ->join('vacancies', 'vacancy_periods.vacancy_id', '=', 'vacancies.id')
             ->join('companies', 'vacancies.company_id', '=', 'companies.id')
-            ->select('companies.name', DB::raw('count(*) as applications'))
+            ->select('companies.id', 'companies.name', DB::raw('count(*) as applications'))
             ->groupBy('companies.id', 'companies.name')
             ->get()
             ->map(fn($company) => [
+                'id' => $company->id,
                 'name' => $company->name,
                 'applications' => $company->applications
             ])
