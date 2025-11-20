@@ -476,10 +476,12 @@ class ApplicationStageController extends Controller
      */
     private function getCurrentStageStatus(string $stage): ?Status
     {
+        // PRIORITY 4: Standardize status code usage - always use database code
         $stageCodeMap = [
-            'administration' => 'admin_selection',
-            'administrative_selection' => 'admin_selection',
-            'psychological_test' => 'psychotest', 
+            'administration' => 'admin_selection', // Frontend uses 'administration'
+            'administrative_selection' => 'admin_selection', // Backend uses 'administrative_selection'
+            'assessment' => 'psychotest', // Frontend uses 'assessment'
+            'psychological_test' => 'psychotest', // Backend uses 'psychological_test'
             'interview' => 'interview'
         ];
 
@@ -494,10 +496,12 @@ class ApplicationStageController extends Controller
      */
     private function getNextStageStatus(string $currentStage): ?Status
     {
+        // PRIORITY 4: Standardize status code usage - always use database code
         $nextStageMap = [
-            'administration' => 'psychotest',
-            'administrative_selection' => 'psychotest',
-            'psychological_test' => 'interview',
+            'administration' => 'psychotest', // Frontend uses 'administration'
+            'administrative_selection' => 'psychotest', // Backend uses 'administrative_selection'
+            'assessment' => 'interview', // Frontend uses 'assessment'
+            'psychological_test' => 'interview', // Backend uses 'psychological_test'
             'interview' => null // Final stage
         ];
 
@@ -685,8 +689,11 @@ class ApplicationStageController extends Controller
             'vacancyPeriod.vacancy.company',
             'vacancyPeriod.period',
             'status',
-            'history' => function($query) {
-                $query->with(['status', 'reviewer'])->latest();
+            // PRIORITY 4: Fix History Queries - filter by application_id and show all (for display purposes)
+            'history' => function($query) use ($id) {
+                $query->where('application_id', $id) // Ensure data integrity - filter by application_id
+                    ->with(['status', 'reviewer'])
+                    ->orderBy('processed_at', 'desc'); // Order by processed_at for chronological display
             }
         ])->findOrFail($id);
 
@@ -837,10 +844,11 @@ class ApplicationStageController extends Controller
 
             $profile = $application->user->candidatesProfile;
             
-            // Get administration history
+            // PRIORITY 2: Fix Status Code Consistency - use 'admin_selection' (database code)
+            // Get administration history - filter by is_active = false (completed) or most recent
             $administrationHistory = $application->history()
                 ->whereHas('status', function($q) {
-                    $q->where('code', 'administrative_selection');
+                    $q->where('code', 'admin_selection'); // Fixed: use database code
                 })
                 ->with(['reviewer'])
                 ->orderBy('processed_at', 'desc')
@@ -1136,7 +1144,7 @@ class ApplicationStageController extends Controller
                         'reviewer_name' => $history->reviewer?->name,
                         'reviewed_by' => $history->reviewer?->name,
                         'is_active' => $history->is_active,
-                        'is_completed' => $history->is_completed,
+                        'is_completed' => !is_null($history->completed_at),
                     ];
                 }),
                 'stages' => [
@@ -1257,11 +1265,12 @@ class ApplicationStageController extends Controller
                     ->latest();
             }
         ])
-        // Show applications in interview stage OR those who have been through interview
+        // Show applications in interview stage - must have active interview history
         ->where(function($query) use ($interviewStatus) {
             $query->where('status_id', $interviewStatus->id)
                   ->orWhereHas('history', function($q) use ($interviewStatus) {
-                      $q->where('status_id', $interviewStatus->id);
+                      $q->where('status_id', $interviewStatus->id)
+                        ->where('is_active', true); // Only show active interview history
                   });
         });
 
@@ -1286,7 +1295,13 @@ class ApplicationStageController extends Controller
 
         // Transform the data
         $transformedData = collect($applications->items())->map(function ($application) {
-            $currentHistory = $application->history->first();
+            // Get the active interview history, or the most recent interview history
+            $currentHistory = $application->history
+                ->filter(function($h) {
+                    return $h->status && $h->status->code === 'interview';
+                })
+                ->sortByDesc('processed_at')
+                ->first();
             
             return [
                 'id' => $application->id,
@@ -1489,8 +1504,9 @@ class ApplicationStageController extends Controller
                 $query->with(['status', 'reviewer'])
                     ->orderBy('processed_at', 'asc');
             },
-            'userAnswers' => function($query) {
-                $query->with(['question.choices', 'choice'])
+            'userAnswers' => function($query) use ($id) {
+                $query->where('application_id', $id)
+                    ->with(['question.choices', 'choice'])
                     ->orderBy('question_id', 'asc');
             }
         ])->findOrFail($id);
@@ -1527,17 +1543,67 @@ class ApplicationStageController extends Controller
         // Get all questions from question pack (ordered by pivot id)
         $questionPack = $application->vacancyPeriod->vacancy->questionPack;
         $questions = collect();
-        $userAnswersMap = $application->userAnswers->keyBy('question_id');
+        
+        // Create a map of user answers by question_id for quick lookup
+        // IMPORTANT: Use application_id to ensure we only get answers for this specific application
+        $userAnswersMap = $application->userAnswers()
+            ->where('application_id', $application->id)
+            ->with(['question.choices', 'choice'])
+            ->get()
+            ->keyBy('question_id');
         
         if ($questionPack) {
-            // Get all questions from question pack with their choices (already ordered by pivot id)
-            $questions = $questionPack->questions()->with('choices')->get();
+            // Get all questions from question pack with their choices, ordered by pivot id to match question pack order
+            $questions = $questionPack->questions()
+                ->with('choices')
+                ->orderBy('pack_question.id', 'asc')
+                ->get();
         }
         
         // Build answers array with ALL questions from question pack
         // For each question, find the user's answer if exists
-        $answersData = $questions->map(function($question) use ($userAnswersMap) {
+        $answersData = $questions->map(function($question) use ($userAnswersMap, $application) {
+            // Find user answer for this specific question and application
             $userAnswer = $userAnswersMap->get($question->id);
+            
+            // Build selected_answer more carefully
+            $selectedAnswer = null;
+            if ($userAnswer) {
+                // For multiple choice questions, prioritize choice
+                if ($question->question_type === 'multiple_choice') {
+                    if ($userAnswer->choice) {
+                        $selectedAnswer = [
+                            'text' => $userAnswer->choice->choice_text,
+                            'is_correct' => $userAnswer->choice->is_correct ?? false,
+                        ];
+                    } elseif ($userAnswer->choice_id) {
+                        // If choice_id exists but choice relation not loaded, try to load it
+                        $userAnswer->loadMissing('choice');
+                        if ($userAnswer->choice) {
+                            $selectedAnswer = [
+                                'text' => $userAnswer->choice->choice_text,
+                                'is_correct' => $userAnswer->choice->is_correct ?? false,
+                            ];
+                        }
+                    }
+                } 
+                // For essay questions, use answer_text
+                elseif ($question->question_type === 'essay') {
+                    if ($userAnswer->answer_text) {
+                        $selectedAnswer = [
+                            'text' => $userAnswer->answer_text,
+                            'is_correct' => false, // Essay answers need manual scoring
+                        ];
+                    }
+                }
+                // Fallback: if answer_text exists but question type is multiple_choice, still show it
+                if (!$selectedAnswer && $userAnswer->answer_text) {
+                    $selectedAnswer = [
+                        'text' => $userAnswer->answer_text,
+                        'is_correct' => false,
+                    ];
+                }
+            }
             
             return [
                 'id' => $userAnswer?->id ?? null,
@@ -1545,17 +1611,15 @@ class ApplicationStageController extends Controller
                 'question' => [
                     'text' => $question->question_text,
                     'type' => $question->question_type ?? 'multiple_choice',
+                    'question_type' => $question->question_type ?? 'multiple_choice', // Add this for frontend compatibility
                     'choices' => $question->choices->map(fn($choice) => [
                         'text' => $choice->choice_text,
                         'is_correct' => $choice->is_correct,
                     ]),
                 ],
-                'selected_answer' => $userAnswer ? [
-                    'text' => $userAnswer->choice?->choice_text ?? ($userAnswer->answer_text ?? 'No answer selected'),
-                    'is_correct' => $userAnswer->choice?->is_correct ?? false,
-                ] : null,
-                'answer_text' => $userAnswer?->answer_text,
-                'score' => $userAnswer?->score,
+                'selected_answer' => $selectedAnswer,
+                'answer_text' => $userAnswer?->answer_text ?? null,
+                'score' => $userAnswer?->score ?? null,
             ];
         })->toArray();
 
@@ -2129,6 +2193,12 @@ class ApplicationStageController extends Controller
                     throw new \Exception('Interview status not found');
                 }
 
+                // PRIORITY 2: Validate score is required
+                if (!$validated['score']) {
+                    DB::rollBack();
+                    return back()->withErrors(['error' => 'Score is required when passing candidate']);
+                }
+
                 // Update the current interview history with score and mark as completed
                 $currentInterviewHistory = $application->history()
                     ->where('is_active', true)
@@ -2139,11 +2209,12 @@ class ApplicationStageController extends Controller
 
                 if ($currentInterviewHistory) {
                     $currentInterviewHistory->update([
-                        'score' => $validated['score'] ?? null,
+                        'score' => $validated['score'], // PRIORITY 2: Required
                         'notes' => $validated['notes'] ?? null,
                         'completed_at' => now(),
+                        'reviewed_by' => Auth::id(), // PRIORITY 2: Required for all score updates
                         'reviewed_at' => now(),
-                        'is_active' => false, // Set to inactive after completion
+                        'is_active' => false, // PRIORITY 1: Standardize - completed history must be is_active = false
                     ]);
                 }
 
@@ -2165,41 +2236,103 @@ class ApplicationStageController extends Controller
 
                 // Handle interview passing - Check if candidate has all scores from all 3 stages
                 if ($validated['status'] === 'passed') {
+                    // PRIORITY 2: Validate score is required
+                    if (!$validated['score']) {
+                        DB::rollBack();
+                        return back()->withErrors(['error' => 'Score is required when passing candidate']);
+                    }
+
+                    // PRIORITY 1: Get administration history - must have score AND reviewed_by (admin has reviewed)
+                    // PRIORITY 1: Always query is_active = false for completed stages
                     $administrationHistory = $application->history()
                         ->whereHas('status', fn($q) => $q->where('code', 'admin_selection'))
                         ->where('is_active', false)
                         ->whereNotNull('score')
+                        ->whereNotNull('reviewed_by') // PRIORITY 2: Must be reviewed by admin
+                        ->orderBy('completed_at', 'desc') // PRIORITY 4: Get the most recent completed one
                         ->first();
 
+                    // PRIORITY 1: Get assessment history - must have score AND reviewed_by (admin has reviewed)
+                    // PRIORITY 1: Always query is_active = false for completed stages
                     $assessmentHistory = $application->history()
                         ->whereHas('status', fn($q) => $q->where('code', 'psychotest'))
                         ->where('is_active', false)
                         ->whereNotNull('score')
+                        ->whereNotNull('reviewed_by') // PRIORITY 2: Must be reviewed by admin (not auto-generated)
+                        ->orderBy('completed_at', 'desc') // PRIORITY 4: Get the most recent completed one
                         ->first();
 
-                    // Get the current interview history (the one we just updated)
-                    $interviewHistory = $application->history()
-                        ->whereHas('status', fn($q) => $q->where('code', 'interview'))
-                        ->where('is_active', false)
-                        ->whereNotNull('score')
-                        ->orderBy('created_at', 'desc')
-                        ->first();
+                    // PRIORITY 1: Get the current interview history (the one we just updated)
+                    // PRIORITY 1: Will be set to is_active = false after update
+                    $interviewHistory = $currentInterviewHistory;
 
-                    // If all 3 scores exist, create application report and mark as pending
-                    if ($administrationHistory?->score && $assessmentHistory?->score && $interviewHistory?->score) {
+                    // PRIORITY 5: Check which stage is missing and provide clear error message
+                    $missingStages = [];
+                    if (!$administrationHistory || !$administrationHistory->score) {
+                        $missingStages[] = 'Administration';
+                    }
+                    if (!$assessmentHistory || !$assessmentHistory->score) {
+                        $missingStages[] = 'Assessment';
+                    }
+                    if (!$interviewHistory || !$interviewHistory->score) {
+                        $missingStages[] = 'Interview';
+                    }
+
+                    // If all 3 scores exist AND all have been reviewed by admin, create or update application report
+                    if (empty($missingStages) && $administrationHistory && $assessmentHistory && $interviewHistory) {
+                        // Calculate overall score from the 3 completed stage scores
                         $overallScore = round(($administrationHistory->score + $assessmentHistory->score + $interviewHistory->score) / 3, 2);
 
-                        // Create or update application report
-                        $application->report()->updateOrCreate(
-                            ['application_id' => $application->id],
-                            [
-                                'overall_score' => $overallScore,
-                                'final_decision' => 'pending',
-                                'final_notes' => null, // Will be filled when HR makes final decision
-                                'decision_made_by' => null,
-                                'decision_made_at' => null,
-                            ]
-                        );
+                        // Check if report already exists
+                        $existingReport = $application->report;
+                        
+                        // Only update overall_score if:
+                        // 1. Report doesn't exist yet, OR
+                        // 2. Report exists but overall_score is null, OR
+                        // 3. Report exists but final_decision is still 'pending' AND overall_score is different (recalculate if scores changed)
+                        // This prevents overwriting overall_score if final decision has already been made
+                        // But allows recalculation if interview score changed and decision is still pending
+                        $shouldUpdateOverallScore = false;
+                        
+                        if (!$existingReport) {
+                            // No report exists, create new one
+                            $shouldUpdateOverallScore = true;
+                        } elseif (!$existingReport->overall_score) {
+                            // Report exists but no overall_score yet
+                            $shouldUpdateOverallScore = true;
+                        } elseif ($existingReport->final_decision === 'pending') {
+                            // Report exists with overall_score, but decision is still pending
+                            // IMPORTANT: Only recalculate if the calculated score is DIFFERENT from existing score
+                            // This prevents unnecessary updates if scores haven't actually changed
+                            // But allows recalculation if interview score was updated (which is expected)
+                            $existingOverallScore = (float) $existingReport->overall_score;
+                            $calculatedOverallScore = (float) $overallScore;
+                            
+                            // Only update if calculated score is different (allows for score changes)
+                            // Use small epsilon for floating point comparison
+                            if (abs($existingOverallScore - $calculatedOverallScore) > 0.01) {
+                                $shouldUpdateOverallScore = true;
+                            }
+                            // If scores are the same (within 0.01), don't update (preserve existing)
+                        }
+                        // If final_decision is not 'pending' (accepted/rejected), don't update overall_score
+                        // This preserves the original overall_score that was used for the final decision
+                        
+                        if ($shouldUpdateOverallScore) {
+                            // Create or update application report
+                            $application->report()->updateOrCreate(
+                                ['application_id' => $application->id],
+                                [
+                                    'overall_score' => $overallScore,
+                                    'final_decision' => $existingReport?->final_decision ?? 'pending',
+                                    'final_notes' => $existingReport?->final_notes ?? null,
+                                    'decision_made_by' => $existingReport?->decision_made_by ?? null,
+                                    'decision_made_at' => $existingReport?->decision_made_at ?? null,
+                                ]
+                            );
+                        }
+                        // If final decision has been made, don't update overall_score (preserve original calculation)
+                        // If scores haven't changed, don't update (preserve existing)
 
                         // Keep the application status as interview (ID 3) for now
                         // The application will only change status when final decision is made in reports
@@ -2217,11 +2350,13 @@ class ApplicationStageController extends Controller
                             'period' => $periodId
                         ])->with('success', 'Interview completed successfully. Candidate moved to reports for final decision.');
                     } else {
-                        // If not all scores are available, just keep in interview stage
+                        // PRIORITY 5: Provide clear error message about missing stages
+                        $errorMessage = 'Interview completed successfully, but cannot create report. Missing scores from: ' . implode(', ', $missingStages);
+                        
                         $application->update(['status_id' => $interviewStatus->id]);
                         
                         DB::commit();
-                        return back()->with('success', 'Interview completed successfully. Waiting for other stage scores.');
+                        return back()->with('warning', $errorMessage);
                     }
                 }
             }
@@ -2235,6 +2370,13 @@ class ApplicationStageController extends Controller
                     throw new \Exception('Rejected status not found');
                 }
 
+                // PRIORITY 7: Rejection should have notes
+                $rejectionNotes = $validated['notes'] ?? null;
+                if (empty($rejectionNotes) || trim($rejectionNotes) === '') {
+                    DB::rollBack();
+                    return back()->withErrors(['error' => 'Rejection reason (notes) is required when rejecting a candidate']);
+                }
+
                 // Update the current interview history and mark as completed & rejected
                 $currentInterviewHistory = $application->history()
                     ->where('is_active', true)
@@ -2244,13 +2386,16 @@ class ApplicationStageController extends Controller
                     ->first();
 
                 if ($currentInterviewHistory) {
+                    // PRIORITY 7: Rejection should have score (0 or provided score)
+                    $rejectionScore = $validated['score'] ?? 0; // Default to 0 if not provided
+                    
                     $currentInterviewHistory->update([
-                        'score' => $validated['score'] ?? null,
-                        'notes' => $validated['notes'] ?? null,
+                        'score' => $rejectionScore, // PRIORITY 7: Always have a score (0 if not provided)
+                        'notes' => $rejectionNotes, // PRIORITY 7: Required
                         'completed_at' => now(),
-                        'reviewed_by' => Auth::id(),
+                        'reviewed_by' => Auth::id(), // PRIORITY 2: Required for all score updates
                         'reviewed_at' => now(),
-                        'is_active' => false, // Deactivate since rejected
+                        'is_active' => false, // PRIORITY 1: Standardize - completed history must be is_active = false
                     ]);
                 }
 
@@ -2316,6 +2461,25 @@ class ApplicationStageController extends Controller
 
             // For assessment stage passing to interview
             if ($mappedStage === 'psychological_test' && $validated['status'] === 'passed') {
+                // PRIORITY 3: Validate that assessment stage is completed
+                // Check if candidate has submitted the test
+                $hasSubmittedTest = $application->userAnswers()->where('application_id', $application->id)->exists();
+                if (!$hasSubmittedTest) {
+                    DB::rollBack();
+                    return back()->withErrors(['error' => 'Candidate must complete the assessment test before moving to interview stage']);
+                }
+
+                // PRIORITY 1: Check if there's a completed assessment history
+                $completedAssessmentHistory = $application->history()
+                    ->whereHas('status', function($q) {
+                        $q->where('code', 'psychotest');
+                    })
+                    ->where('is_active', false)
+                    ->whereNotNull('score')
+                    ->whereNotNull('reviewed_by')
+                    ->orderBy('completed_at', 'desc')
+                    ->first();
+
                 // Get the interview status
                 $interviewStatus = Status::where('code', 'interview')
                     ->first();
@@ -2330,14 +2494,40 @@ class ApplicationStageController extends Controller
                 // Use the new scoring logic
                 $calculatedScore = $this->calculateTestScore($application);
                 
-                // For psychological tests, require manual score
+                // PRIORITY 4: For psychological tests, require manual score
                 if ($calculatedScore === null) {
                     // This is a psychological test - use manual score if provided
                     $calculatedScore = $validated['score'] ?? null;
                     
                     if ($calculatedScore === null) {
-                        throw new \Exception('Manual score is required for psychological tests');
+                        DB::rollBack();
+                        return back()->withErrors(['error' => 'Manual score is required for psychological tests. Please provide a score before moving to interview stage.']);
                     }
+                }
+
+                // PRIORITY 2: Validate score and reviewed_by are required
+                if (!$calculatedScore) {
+                    DB::rollBack();
+                    return back()->withErrors(['error' => 'Score is required when passing candidate to next stage']);
+                }
+
+                // PRIORITY 9: Validate interview scheduling
+                if (!$validated['zoom_url'] || !$validated['scheduled_at']) {
+                    DB::rollBack();
+                    return back()->withErrors(['error' => 'Zoom URL and interview schedule are required when passing candidate to interview stage']);
+                }
+
+                // Validate scheduled_at is in the future
+                $scheduledDate = \Carbon\Carbon::parse($validated['scheduled_at']);
+                if ($scheduledDate->isPast()) {
+                    DB::rollBack();
+                    return back()->withErrors(['error' => 'Interview schedule must be in the future']);
+                }
+
+                // Validate Zoom URL format
+                if (!filter_var($validated['zoom_url'], FILTER_VALIDATE_URL)) {
+                    DB::rollBack();
+                    return back()->withErrors(['error' => 'Invalid Zoom URL format']);
                 }
 
                 // Update the current assessment history with score and mark as completed
@@ -2350,35 +2540,44 @@ class ApplicationStageController extends Controller
 
                 if ($currentAssessmentHistory) {
                     $currentAssessmentHistory->update([
-                        'score' => $calculatedScore, // Use calculated score from user answers
+                        'score' => $calculatedScore,
                         'notes' => $validated['notes'] ?? null,
                         'completed_at' => now(),
                         'reviewed_by' => Auth::id(),
                         'reviewed_at' => now(),
+                        'is_active' => false, // PRIORITY 1: Standardize - completed history must be is_active = false
+                    ]);
+                } else {
+                    // If no active history, create one and immediately complete it
+                    $currentAssessmentHistory = $application->history()->create([
+                        'status_id' => Status::where('code', 'psychotest')->first()->id,
+                        'score' => $calculatedScore,
+                        'notes' => $validated['notes'] ?? null,
+                        'completed_at' => now(),
+                        'reviewed_by' => Auth::id(),
+                        'reviewed_at' => now(),
+                        'processed_at' => now(),
+                        'is_active' => false,
                     ]);
                 }
 
-                // Deactivate ALL active histories EXCEPT the current one we just updated
+                // Deactivate ALL other active histories
                 $application->history()
                     ->where('is_active', true)
-                    ->where('id', '!=', $currentAssessmentHistory?->id)
+                    ->where('id', '!=', $currentAssessmentHistory->id)
                     ->update(['is_active' => false]);
 
-                // Now deactivate the current assessment history (preserving the score)
-                if ($currentAssessmentHistory) {
-                    $currentAssessmentHistory->update(['is_active' => false]);
-                }
-
-                // Create new interview history
+                // PRIORITY 1: Create new interview history with is_active = true (new stage started)
+                // PRIORITY 2: Don't set reviewed_by yet - it will be set when admin reviews the interview
                 $application->history()->create([
                     'status_id' => $interviewStatus->id,
                     'notes' => null,
                     'score' => null,
                     'processed_at' => now(),
-                    'resource_url' => $validated['zoom_url'] ?? null,
-                    'scheduled_at' => $validated['scheduled_at'] ?? null,
-                    'reviewed_by' => Auth::id(),
-                    'is_active' => true,
+                    'resource_url' => $validated['zoom_url'],
+                    'scheduled_at' => $scheduledDate,
+                    'reviewed_by' => null, // Will be set when admin reviews
+                    'is_active' => true, // Active until completed
                 ]);
 
                 // Update application status to interview
@@ -2405,13 +2604,20 @@ class ApplicationStageController extends Controller
                     throw new \Exception('Rejected status not found');
                 }
 
+                // PRIORITY 7: Rejection should have notes
+                $rejectionNotes = $validated['notes'] ?? null;
+                if (empty($rejectionNotes) || trim($rejectionNotes) === '') {
+                    DB::rollBack();
+                    return back()->withErrors(['error' => 'Rejection reason (notes) is required when rejecting a candidate']);
+                }
+
                 // Load vacancy relation if not already loaded
                 $application->load('vacancyPeriod.vacancy.questionPack');
                 
                 // Use the new scoring logic
                 $calculatedScore = $this->calculateTestScore($application);
                 
-                // For psychological tests, use manual score if provided
+                // PRIORITY 7: For psychological tests, use manual score if provided, otherwise 0
                 if ($calculatedScore === null) {
                     $calculatedScore = $validated['score'] ?? 0;
                 }
@@ -2426,12 +2632,12 @@ class ApplicationStageController extends Controller
 
                 if ($currentAssessmentHistory) {
                     $currentAssessmentHistory->update([
-                        'score' => $calculatedScore, // Use calculated score from user answers
-                        'notes' => $validated['notes'] ?? null,
+                        'score' => $calculatedScore, // Use calculated score from user answers or 0
+                        'notes' => $rejectionNotes, // PRIORITY 7: Required
                         'completed_at' => now(),
-                        'reviewed_by' => Auth::id(),
+                        'reviewed_by' => Auth::id(), // PRIORITY 2: Required for all score updates
                         'reviewed_at' => now(),
-                        'is_active' => false, // Deactivate since rejected
+                        'is_active' => false, // PRIORITY 1: Standardize - completed history must be is_active = false
                     ]);
                 }
 
@@ -2450,6 +2656,62 @@ class ApplicationStageController extends Controller
 
             // For administration stage passing to assessment
             if ($mappedStage === 'administrative_selection' && $validated['status'] === 'passed') {
+                // PRIORITY 1: Validate that administration stage is completed
+                // Check if there's a completed administration history with score and reviewed_by
+                $completedAdminHistory = $application->history()
+                    ->whereHas('status', function($q) {
+                        $q->where('code', 'admin_selection');
+                    })
+                    ->where('is_active', false)
+                    ->whereNotNull('score')
+                    ->whereNotNull('reviewed_by')
+                    ->orderBy('completed_at', 'desc')
+                    ->first();
+
+                // If no completed history exists, check if current active history can be completed
+                $currentAdminHistory = $application->history()
+                    ->where('is_active', true)
+                    ->whereHas('status', function($q) {
+                        $q->where('code', 'admin_selection');
+                    })
+                    ->first();
+
+                // PRIORITY 2: Validate score and reviewed_by are required
+                if (!$validated['score']) {
+                    DB::rollBack();
+                    return back()->withErrors(['error' => 'Score is required when passing candidate to next stage']);
+                }
+
+                // Update the current administration history with score and mark as completed
+                if ($currentAdminHistory) {
+                    $currentAdminHistory->update([
+                        'score' => $validated['score'],
+                        'notes' => $validated['notes'] ?? null,
+                        'completed_at' => now(),
+                        'reviewed_by' => Auth::id(),
+                        'reviewed_at' => now(),
+                        'is_active' => false, // PRIORITY 1: Standardize - completed history must be is_active = false
+                    ]);
+                } else {
+                    // If no active history, create one and immediately complete it
+                    $currentAdminHistory = $application->history()->create([
+                        'status_id' => Status::where('code', 'admin_selection')->first()->id,
+                        'score' => $validated['score'],
+                        'notes' => $validated['notes'] ?? null,
+                        'completed_at' => now(),
+                        'reviewed_by' => Auth::id(),
+                        'reviewed_at' => now(),
+                        'processed_at' => now(),
+                        'is_active' => false,
+                    ]);
+                }
+
+                // Deactivate ALL other active histories
+                $application->history()
+                    ->where('is_active', true)
+                    ->where('id', '!=', $currentAdminHistory->id)
+                    ->update(['is_active' => false]);
+
                 // Get the assessment status
                 $assessmentStatus = Status::where('code', 'psychotest')
                     ->first();
@@ -2458,43 +2720,15 @@ class ApplicationStageController extends Controller
                     throw new \Exception('Assessment status not found');
                 }
 
-                // Update the current administration history with score and mark as completed
-                $currentAdminHistory = $application->history()
-                    ->where('is_active', true)
-                    ->whereHas('status', function($q) {
-                        $q->where('code', 'admin_selection');
-                    })
-                    ->first();
-
-                if ($currentAdminHistory) {
-                    $currentAdminHistory->update([
-                        'score' => $validated['score'] ?? null,
-                        'notes' => $validated['notes'] ?? null,
-                        'completed_at' => now(),
-                        'reviewed_by' => Auth::id(),
-                        'reviewed_at' => now(),
-                    ]);
-                }
-
-                // Deactivate ALL active histories EXCEPT the current one we just updated
-                $application->history()
-                    ->where('is_active', true)
-                    ->where('id', '!=', $currentAdminHistory?->id)
-                    ->update(['is_active' => false]);
-
-                // Now deactivate the current administration history (preserving the score)
-                if ($currentAdminHistory) {
-                    $currentAdminHistory->update(['is_active' => false]);
-                }
-
-                // Create new assessment history
+                // PRIORITY 1: Create new assessment history with is_active = true (new stage started)
+                // PRIORITY 2: Don't set reviewed_by yet - it will be set when admin reviews the assessment
                 $application->history()->create([
                     'status_id' => $assessmentStatus->id,
                     'notes' => null,
                     'score' => null,
                     'processed_at' => now(),
-                    'reviewed_by' => Auth::id(),
-                    'is_active' => true,
+                    'reviewed_by' => null, // Will be set when admin reviews
+                    'is_active' => true, // Active until completed
                 ]);
 
                 // Update application status to assessment
@@ -2521,6 +2755,15 @@ class ApplicationStageController extends Controller
                     throw new \Exception('Rejected status not found');
                 }
 
+                // PRIORITY 7: Rejection should have score (0 or provided score) and notes
+                $rejectionScore = $validated['score'] ?? 0; // Default to 0 if not provided
+                $rejectionNotes = $validated['notes'] ?? null;
+                
+                if (empty($rejectionNotes) || trim($rejectionNotes) === '') {
+                    DB::rollBack();
+                    return back()->withErrors(['error' => 'Rejection reason (notes) is required when rejecting a candidate']);
+                }
+
                 // Update the current administration history and mark as completed & rejected
                 $currentAdminHistory = $application->history()
                     ->where('is_active', true)
@@ -2531,12 +2774,12 @@ class ApplicationStageController extends Controller
 
                 if ($currentAdminHistory) {
                     $currentAdminHistory->update([
-                        'score' => $validated['score'] ?? null,
-                        'notes' => $validated['notes'] ?? null,
+                        'score' => $rejectionScore, // PRIORITY 7: Always have a score (0 if not provided)
+                        'notes' => $rejectionNotes, // PRIORITY 7: Required
                         'completed_at' => now(),
-                        'reviewed_by' => Auth::id(),
+                        'reviewed_by' => Auth::id(), // PRIORITY 2: Required for all score updates
                         'reviewed_at' => now(),
-                        'is_active' => false, // Deactivate since rejected
+                        'is_active' => false, // PRIORITY 1: Standardize - completed history must be is_active = false
                     ]);
                 }
 

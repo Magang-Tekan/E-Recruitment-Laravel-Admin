@@ -164,6 +164,29 @@ export default function AdministrationDetail({ candidate }: Props) {
         return format(new Date(date), 'dd MMMM yyyy');
     };
 
+    // PRIORITY 3: Fix Action Buttons Validation - check if candidate already reviewed/rejected
+    // Find administration history entry
+    const administrationHistory = candidate.history?.find(h => 
+        h.status?.code === 'admin_selection' || h.status?.code === 'administrative_selection'
+    );
+    
+    // Check if admin has given score (reviewed)
+    const hasScore = administrationHistory?.score !== null && 
+        administrationHistory?.score !== undefined &&
+        administrationHistory?.score !== '' &&
+        !isNaN(Number(administrationHistory.score));
+    
+    // Check if candidate is rejected
+    const isRejected = candidate.status?.code === 'rejected';
+    
+    // Check if candidate has moved to next stage (assessment)
+    const hasMovedToNextStage = candidate.history?.some(h => 
+        h.status?.code === 'psychotest' || h.status?.code === 'psychological_test'
+    );
+    
+    // Show action buttons only if not reviewed, not rejected, and not moved to next stage
+    const showActionButtons = !hasScore && !isRejected && !hasMovedToNextStage;
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Candidate Detail" />
@@ -206,24 +229,79 @@ export default function AdministrationDetail({ candidate }: Props) {
                     </div>  
                 </div>
 
-                {/* Action Buttons */}
-                <div className="flex justify-end gap-4">
-                    <Button
-                        variant="outline"
-                        className="gap-2"
-                        onClick={() => setActionDialog({ isOpen: true, action: 'reject' })}
-                    >
-                        <ThumbsDown className="h-4 w-4" />
-                        Reject
-                    </Button>
-                    <Button
-                        className="gap-2"
-                        onClick={() => setActionDialog({ isOpen: true, action: 'accept' })}
-                    >
-                        <ThumbsUp className="h-4 w-4" />
-                        Accept & Continue
-                    </Button>
-                </div>
+                {/* PRIORITY 5: Fix Score Display - show score, reviewer, and review date if reviewed */}
+                {hasScore && administrationHistory && (
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Administration Review</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm font-medium text-muted-foreground">Score:</span>
+                                    <span className="text-lg font-semibold text-green-700">
+                                        {Number(administrationHistory.score).toFixed(2)}
+                                    </span>
+                                </div>
+                                {administrationHistory.reviewer && (
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-sm font-medium text-muted-foreground">Reviewed by:</span>
+                                        <span className="text-sm">{administrationHistory.reviewer.name}</span>
+                                    </div>
+                                )}
+                                {administrationHistory.completed_at && (
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-sm font-medium text-muted-foreground">Reviewed at:</span>
+                                        <span className="text-sm">{formatDate(administrationHistory.completed_at)}</span>
+                                    </div>
+                                )}
+                                {administrationHistory.notes && (
+                                    <div className="mt-4 pt-4 border-t">
+                                        <span className="text-sm font-medium text-muted-foreground">Notes:</span>
+                                        <p className="text-sm mt-1">{administrationHistory.notes}</p>
+                                    </div>
+                                )}
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
+
+                {/* PRIORITY 3: Fix Action Buttons Validation - only show if not reviewed/rejected/moved */}
+                {showActionButtons ? (
+                    <div className="flex justify-end gap-4">
+                        <Button
+                            variant="outline"
+                            className="gap-2"
+                            onClick={() => setActionDialog({ isOpen: true, action: 'reject' })}
+                        >
+                            <ThumbsDown className="h-4 w-4" />
+                            Reject
+                        </Button>
+                        <Button
+                            className="gap-2"
+                            onClick={() => setActionDialog({ isOpen: true, action: 'accept' })}
+                        >
+                            <ThumbsUp className="h-4 w-4" />
+                            Accept & Continue
+                        </Button>
+                    </div>
+                ) : (
+                    <Card>
+                        <CardContent className="pt-6">
+                            <div className="text-center text-muted-foreground">
+                                {hasScore && (
+                                    <p className="text-sm">✓ Administration sudah selesai. Keputusan sudah diberikan.</p>
+                                )}
+                                {isRejected && (
+                                    <p className="text-sm">Candidate telah ditolak pada tahap administration.</p>
+                                )}
+                                {hasMovedToNextStage && (
+                                    <p className="text-sm">Candidate telah melanjutkan ke tahap assessment.</p>
+                                )}
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
 
                 <div className="space-y-6">
                     {/* Personal Information */}

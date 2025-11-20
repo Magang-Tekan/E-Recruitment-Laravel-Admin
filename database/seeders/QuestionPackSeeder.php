@@ -7,6 +7,7 @@ use App\Models\Question;
 use App\Models\QuestionPack;
 use App\Models\User;
 use Illuminate\Database\Seeder;
+use Carbon\Carbon;
 
 class QuestionPackSeeder extends Seeder
 {
@@ -26,7 +27,36 @@ class QuestionPackSeeder extends Seeder
         // Hapus semua question packs yang ada
         QuestionPack::query()->delete();
         
-        // Create question packs - hanya beberapa pack penting saja
+        // Get all questions
+        $allQuestions = Question::all();
+        $multipleChoiceQuestions = $allQuestions->where('question_type', 'multiple_choice');
+        $essayQuestions = $allQuestions->where('question_type', 'essay');
+        
+        // Create INTERNSHIP question pack with 3 essay and 2 multiple choice
+        $internshipPack = QuestionPack::create([
+            'pack_name' => 'INTERNSHIP',
+            'description' => 'Assessment test for internship program',
+            'test_type' => 'General',
+            'duration' => 60,
+            'opens_at' => Carbon::create(2025, 1, 11, 0, 0, 0), // 11-01-2025
+            'closes_at' => Carbon::create(2026, 1, 1, 23, 59, 59), // 01-01-2026
+            'user_id' => $user->id,
+            'status' => 'active'
+        ]);
+        
+        // Attach 2 multiple choice questions
+        $mcQuestions = $multipleChoiceQuestions->take(2);
+        foreach ($mcQuestions as $question) {
+            $internshipPack->questions()->attach($question->id);
+        }
+        
+        // Attach 3 essay questions
+        $essaySelected = $essayQuestions->take(3);
+        foreach ($essaySelected as $question) {
+            $internshipPack->questions()->attach($question->id);
+        }
+        
+        // Create other question packs - hanya beberapa pack penting saja
         $questionPacks = [
             // General Test Type
             [

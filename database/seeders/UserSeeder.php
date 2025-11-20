@@ -70,5 +70,25 @@ class UserSeeder extends Seeder
             'role' => UserRole::CANDIDATE,
             'no_ektp' => $this->faker->unique()->numerify('3171##########'),
         ]);
+
+        // Candidate 4 - Teknik Informatika (for Software Engineer application)
+        User::create([
+            'id' => 5,
+            'name' => 'Ahmad Fauzi',
+            'email' => 'ahmad.fauzi@gmail.com',
+            'password' => Hash::make('password'),
+            'role' => UserRole::CANDIDATE,
+            'no_ektp' => $this->faker->unique()->numerify('3171##########'),
+        ]);
+
+        // Candidate 5 - Teknik Informatika (for Software Engineer application - John Doe)
+        User::create([
+            'id' => 6,
+            'name' => 'John Doe',
+            'email' => 'john.doe@example.com',
+            'password' => Hash::make('password'),
+            'role' => UserRole::CANDIDATE,
+            'no_ektp' => $this->faker->unique()->numerify('3171##########'),
+        ]);
     }
 }

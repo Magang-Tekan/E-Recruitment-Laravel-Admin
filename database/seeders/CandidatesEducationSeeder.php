@@ -44,32 +44,52 @@ class CandidatesEducationSeeder extends Seeder
         $informatikaMajor = $majors->where('name', 'Teknik Informatika')->first();
         $smaMajor = $majors->where('name', 'Matematika')->first() ?? $majors->first();
 
+        // Get Akuntansi major
+        $akuntansiMajor = $majors->where('name', 'Akuntansi')->first();
+        
         foreach ($candidateUsers as $index => $user) {
-            // S1 Teknik Informatika untuk semua candidate
-            if ($s1Level && $informatikaMajor) {
-                $institutions = [
-                    'Universitas Indonesia',
-                    'Institut Teknologi Bandung',
-                    'Universitas Gadjah Mada',
-                    'Institut Teknologi Sepuluh Nopember',
-                    'Universitas Bina Nusantara',
-                    'Universitas Gunadarma',
-                ];
-                
-                $gpas = [3.45, 3.60, 3.75];
-                $startYears = [2017, 2018, 2019];
-                $endYears = [2021, 2022, 2023];
-                
-                CandidatesEducation::create([
-                    'user_id' => $user->id,
-                    'education_level_id' => $s1Level->id,
-                    'faculty' => 'Fakultas Ilmu Komputer',
-                    'major_id' => $informatikaMajor->id,
-                    'institution_name' => $institutions[$index % count($institutions)],
-                    'gpa' => $gpas[$index % count($gpas)],
-                    'year_in' => $startYears[$index % count($startYears)],
-                    'year_out' => $endYears[$index % count($endYears)],
-                ]);
+            // Budi Santoso gets D4/S1 Akuntansi
+            if ($user->email === 'budi.santoso@gmail.com' || $user->name === 'Budi Santoso') {
+                // Budi Santoso - D4/S1 Akuntansi
+                if ($s1Level && $akuntansiMajor) {
+                    CandidatesEducation::create([
+                        'user_id' => $user->id,
+                        'education_level_id' => $s1Level->id,
+                        'faculty' => 'Fakultas Ekonomi dan Bisnis',
+                        'major_id' => $akuntansiMajor->id,
+                        'institution_name' => 'Universitas Indonesia',
+                        'gpa' => 3.65,
+                        'year_in' => 2019,
+                        'year_out' => 2023,
+                    ]);
+                }
+            } else {
+                // Other candidates - S1 Teknik Informatika
+                if ($s1Level && $informatikaMajor) {
+                    $institutions = [
+                        'Universitas Indonesia',
+                        'Institut Teknologi Bandung',
+                        'Universitas Gadjah Mada',
+                        'Institut Teknologi Sepuluh Nopember',
+                        'Universitas Bina Nusantara',
+                        'Universitas Gunadarma',
+                    ];
+                    
+                    $gpas = [3.45, 3.60, 3.75, 3.80];
+                    $startYears = [2017, 2018, 2019, 2020];
+                    $endYears = [2021, 2022, 2023, 2024];
+                    
+                    CandidatesEducation::create([
+                        'user_id' => $user->id,
+                        'education_level_id' => $s1Level->id,
+                        'faculty' => 'Fakultas Ilmu Komputer',
+                        'major_id' => $informatikaMajor->id,
+                        'institution_name' => $institutions[$index % count($institutions)],
+                        'gpa' => $gpas[$index % count($gpas)],
+                        'year_in' => $startYears[$index % count($startYears)],
+                        'year_out' => $endYears[$index % count($endYears)],
+                    ]);
+                }
             }
             
             // SMA untuk semua candidate
