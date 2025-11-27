@@ -13,6 +13,9 @@ interface Question {
   id: number;
   question_text: string;
   question_type: string;
+  options?: string[];
+  correct_answer_letter?: string | null;
+  correct_answer_text?: string | null;
 }
 
 interface QuestionPack {
@@ -174,12 +177,14 @@ export default function ViewQuestionPack({ questionPack }: Props) {
                       <TableHead className="w-12">#</TableHead>
                       <TableHead>Question</TableHead>
                       <TableHead className="w-[150px]">Type</TableHead>
+                      <TableHead className="w-[220px]">Options</TableHead>
+                      <TableHead className="w-[140px]">Correct Answer</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {questionPack.questions.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={3} className="text-center py-8 text-gray-500">
+                        <TableCell colSpan={5} className="text-center py-8 text-gray-500">
                           No questions have been added to this pack.
                         </TableCell>
                       </TableRow>
@@ -189,17 +194,35 @@ export default function ViewQuestionPack({ questionPack }: Props) {
                           <TableCell>{index + 1}</TableCell>
                           <TableCell>{question.question_text}</TableCell>
                           <TableCell>
-                            <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
-                              question.question_type === 'essay' 
-                                ? 'bg-blue-100 text-blue-700' 
+                            <span
+                              className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
+                                question.question_type === 'essay'
+                                  ? 'bg-blue-100 text-blue-700'
+                                  : question.question_type === 'multiple_choice'
+                                  ? 'bg-gray-100 text-gray-700'
+                                  : 'bg-gray-100 text-gray-700'
+                              }`}
+                            >
+                              {question.question_type === 'essay'
+                                ? 'Essay'
                                 : question.question_type === 'multiple_choice'
-                                ? 'bg-gray-100 text-gray-700'
-                                : 'bg-gray-100 text-gray-700'
-                            }`}>
-                              {question.question_type === 'essay' ? 'Essay' : 
-                               question.question_type === 'multiple_choice' ? 'Multiple Choice' : 
-                               question.question_type?.replace('_', ' ') || 'Multiple Choice'}
+                                ? 'Multiple Choice'
+                                : question.question_type?.replace('_', ' ') || 'Multiple Choice'}
                             </span>
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {question.question_type === 'multiple_choice' && question.options?.length
+                              ? question.options
+                                  .map((opt, idx) => `${String.fromCharCode('A'.charCodeAt(0) + idx)}. ${opt}`)
+                                  .join(' | ')
+                              : '-'}
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {question.question_type === 'multiple_choice' && question.correct_answer_letter
+                              ? `${question.correct_answer_letter}${
+                                  question.correct_answer_text ? `. ${question.correct_answer_text}` : ''
+                                }`
+                              : '-'}
                           </TableCell>
                         </TableRow>
                       ))
