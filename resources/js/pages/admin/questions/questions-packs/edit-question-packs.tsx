@@ -1,25 +1,14 @@
-// src/pages/dashboard/questions/edit-question-packs.tsx
-
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Head, router } from '@inertiajs/react';
 import AppLayout from '@/layouts/app-layout';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Loader2 } from 'lucide-react';
-import ConfirmationDialog from '@/components/confirmation-dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { type BreadcrumbItem } from '@/types';
+import { Loader2, ArrowLeft } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const breadcrumbs: BreadcrumbItem[] = [
   { title: 'Dashboard', href: '/dashboard' },
@@ -28,50 +17,59 @@ const breadcrumbs: BreadcrumbItem[] = [
   { title: 'Edit Question Pack', href: '#' },
 ];
 
-interface Question {
+interface ExistingQuestion {
   id: number;
   question_text: string;
-  question_type: string;
+  question_type: 'multiple_choice' | 'essay';
+  options?: string[];
+  correct_answer_letter?: string | null;
+  correct_answer_text?: string | null;
 }
 
-interface QuestionPack {
+interface QuestionPackProps {
   id: number;
   pack_name: string;
   description: string;
   test_type: string;
   duration: number;
-  opens_at?: string;
-  closes_at?: string;
-  questions: Question[];
+  opens_at?: string | null;
+  closes_at?: string | null;
+  questions: ExistingQuestion[];
+}
+
+interface NewQuestion {
+  id?: number;
+  question_text: string;
+  question_type: 'multiple_choice' | 'essay';
+  options: string[];
+  correct_answer: string;
 }
 
 interface Props {
-  questionPack: QuestionPack;
-  allQuestions?: Question[];
+  questionPack: QuestionPackProps;
 }
 
-export default function EditQuestionPacks({ questionPack, allQuestions = [] }: Props) {
+export default function EditQuestionPacks({ questionPack }: Props) {
   const [packName, setPackName] = useState(questionPack.pack_name);
   const [description, setDescription] = useState(questionPack.description);
   const [testType, setTestType] = useState(questionPack.test_type);
+
   const [opensAt, setOpensAt] = useState(() => {
     if (questionPack.opens_at) {
-      // Convert to datetime-local format (YYYY-MM-DDTHH:MM)
       const date = new Date(questionPack.opens_at);
       return date.toISOString().slice(0, 16);
     }
     return '';
   });
+
   const [closesAt, setClosesAt] = useState(() => {
     if (questionPack.closes_at) {
-      // Convert to datetime-local format (YYYY-MM-DDTHH:MM)
       const date = new Date(questionPack.closes_at);
       return date.toISOString().slice(0, 16);
     }
     return '';
   });
 
-  // Parse duration from minutes to hours, minutes, seconds
   const [duration, setDuration] = useState(() => {
     const totalMinutes = questionPack.duration;
     const hours = Math.floor(totalMinutes / 60).toString().padStart(2, '0');
@@ -79,67 +77,103 @@ export default function EditQuestionPacks({ questionPack, allQuestions = [] }: P
     return { hours, minutes, seconds: '00' };
   });
 
-  const [selectedQuestionIds, setSelectedQuestionIds] = useState<number[]>(
-    questionPack.questions.map(q => q.id)
+  const [step, setStep] = useState<1 | 2>(1);
+  const [questions, setQuestions] = useState<NewQuestion[]>(() =>
+    (questionPack.questions || []).map((q) => ({
+      id: q.id,
+      question_text: q.question_text,
+      question_type: q.question_type ?? 'multiple_choice',
+      options: q.options && q.options.length > 0 ? q.options : ['', '', ''],
+      correct_answer: (q.correct_answer_letter || '').toString().toUpperCase(),
+    })),
   );
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const [hasChanges, setHasChanges] = useState(false);
 
-  // Check for changes
-  useEffect(() => {
-    const originalQuestionIds = questionPack.questions.map(q => q.id).sort();
-    const currentQuestionIds = [...selectedQuestionIds].sort();
+  const formatDurationToMinutes = () =>
+    parseInt(duration.hours || '0') * 60 + parseInt(duration.minutes || '0');
 
-    const durationChanged =
-      parseInt(duration.hours) * 60 + parseInt(duration.minutes) !== questionPack.duration;
-
-    const questionsChanged =
-      originalQuestionIds.length !== currentQuestionIds.length ||
-      originalQuestionIds.some((id, index) => id !== currentQuestionIds[index]);
-
-    setHasChanges(
-      packName !== questionPack.pack_name ||
-      description !== questionPack.description ||
-      testType !== questionPack.test_type ||
-      opensAt !== (questionPack.opens_at || '') ||
-      closesAt !== (questionPack.closes_at || '') ||
-      durationChanged ||
-      questionsChanged
-    );
-  }, [packName, description, testType, duration, selectedQuestionIds, questionPack]);
-
-  const handleSave = () => {
-    setShowConfirmDialog(true);
+  const addEmptyQuestion = () => {
+    setQuestions((prev) => [
+      ...prev,
+      {
+        id: undefined,
+        question_text: '',
+        question_type: 'multiple_choice',
+        options: ['', '', ''],
+        correct_answer: '',
+      },
+    ]);
   };
 
-  const confirmSave = () => {
+  const updateQuestion = (index: number, updater: (q: NewQuestion) => NewQuestion) => {
+    setQuestions((prev) => prev.map((q, idx) => (idx === index ? updater(q) : q)));
+  };
+
+  const removeQuestion = (index: number) => {
+    setQuestions((prev) => prev.filter((_, idx) => idx !== index));
+  };
+
+  const handleSubmit = () => {
     setIsSubmitting(true);
-    setShowConfirmDialog(false);
 
-    const durationInMinutes =
-      parseInt(duration.hours || '0') * 60 +
-      parseInt(duration.minutes || '0');
+    // Validasi questions mirip halaman create
+    if (questions.length === 0) {
+      alert('Tambahkan minimal 1 pertanyaan untuk pack ini.');
+      setIsSubmitting(false);
+      return;
+    }
 
-    router.put(`/dashboard/questionpacks/${questionPack.id}`, {
-      pack_name: packName,
-      description,
-      test_type: testType,
-      duration: durationInMinutes,
-      opens_at: opensAt,
-      closes_at: closesAt,
-      question_ids: selectedQuestionIds,
-    }, {
-      onFinish: () => setIsSubmitting(false)
-    });
-  };
+    for (const q of questions) {
+      if (!q.question_text.trim()) {
+        alert('Semua pertanyaan harus memiliki teks.');
+        setIsSubmitting(false);
+        return;
+      }
 
-  const toggleQuestionSelection = (questionId: number) => {
-    setSelectedQuestionIds(prev =>
-      prev.includes(questionId)
-        ? prev.filter(id => id !== questionId)
-        : [...prev, questionId]
+      if (q.question_type === 'multiple_choice') {
+        const validOptions = q.options.map((o) => o.trim()).filter((o) => o !== '');
+        if (validOptions.length < 2) {
+          alert('Setiap pertanyaan multiple choice harus memiliki minimal 2 opsi.');
+          setIsSubmitting(false);
+          return;
+        }
+
+        const upper = q.correct_answer.trim().toUpperCase();
+        const allowedLetters = Array.from({ length: validOptions.length }, (_, i) =>
+          String.fromCharCode('A'.charCodeAt(0) + i),
+        );
+
+        if (!upper || !allowedLetters.includes(upper)) {
+          alert(`Correct answer harus berupa huruf ${allowedLetters.join(', ')} sesuai jumlah opsi.`);
+          setIsSubmitting(false);
+          return;
+        }
+      }
+    }
+
+    const durationInMinutes = formatDurationToMinutes();
+
+    router.put(
+      `/dashboard/questionpacks/${questionPack.id}`,
+      {
+        pack_name: packName,
+        description,
+        test_type: testType,
+        duration: durationInMinutes,
+        opens_at: opensAt,
+        closes_at: closesAt,
+        questions: questions.map((q) => ({
+          id: q.id,
+          question_text: q.question_text,
+          question_type: q.question_type,
+          options: q.question_type === 'multiple_choice' ? q.options : [],
+          correct_answer: q.question_type === 'multiple_choice' ? q.correct_answer.toUpperCase() : null,
+        })),
+      },
+      {
+        onFinish: () => setIsSubmitting(false),
+      },
     );
   };
 
@@ -148,22 +182,33 @@ export default function EditQuestionPacks({ questionPack, allQuestions = [] }: P
       <Head title="Edit Question Pack" />
       <div className="flex flex-col p-6 gap-6">
         <Card className="w-full">
-          <CardContent className="flex flex-col gap-6 p-6">
-            <h2 className="text-xl font-semibold">Edit Question Pack</h2>
-
+          <CardHeader>
+            <CardTitle>
+              {step === 1
+                ? `Edit Question Pack - Step 1 (Pack Info)`
+                : `Edit Question Pack - Step 2 (Questions)`}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-6">
             <div className="space-y-2">
-              <Label htmlFor="packName" className="text-blue-500">Pack Name</Label>
+              <Label htmlFor="packName" className="text-blue-500">
+                Pack Name
+              </Label>
               <Input
                 id="packName"
+                placeholder="Enter pack name"
                 value={packName}
                 onChange={(e) => setPackName(e.target.value)}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="description" className="text-blue-500">Description</Label>
+              <Label htmlFor="description" className="text-blue-500">
+                Description
+              </Label>
               <Input
                 id="description"
+                placeholder="Enter description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
               />
@@ -171,7 +216,9 @@ export default function EditQuestionPacks({ questionPack, allQuestions = [] }: P
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="testType" className="text-blue-500">Test Type</Label>
+                <Label htmlFor="testType" className="text-blue-500">
+                  Test Type
+                </Label>
                 <Select value={testType} onValueChange={(value) => setTestType(value)}>
                   <SelectTrigger id="testType">
                     <SelectValue placeholder="Select test type" />
@@ -198,9 +245,7 @@ export default function EditQuestionPacks({ questionPack, allQuestions = [] }: P
                     max="23"
                     className="w-10 text-center text-gray-500 outline-none bg-transparent"
                     value={duration.hours}
-                    onChange={(e) =>
-                      setDuration((prev) => ({ ...prev, hours: e.target.value }))
-                    }
+                    onChange={(e) => setDuration((prev) => ({ ...prev, hours: e.target.value }))}
                   />
                   <span className="text-gray-400">:</span>
                   <input
@@ -209,9 +254,7 @@ export default function EditQuestionPacks({ questionPack, allQuestions = [] }: P
                     max="59"
                     className="w-10 text-center text-gray-500 outline-none bg-transparent"
                     value={duration.minutes}
-                    onChange={(e) =>
-                      setDuration((prev) => ({ ...prev, minutes: e.target.value }))
-                    }
+                    onChange={(e) => setDuration((prev) => ({ ...prev, minutes: e.target.value }))}
                   />
                   <span className="text-gray-400">:</span>
                   <input
@@ -220,9 +263,7 @@ export default function EditQuestionPacks({ questionPack, allQuestions = [] }: P
                     max="59"
                     className="w-10 text-center text-gray-500 outline-none bg-transparent"
                     value={duration.seconds}
-                    onChange={(e) =>
-                      setDuration((prev) => ({ ...prev, seconds: e.target.value }))
-                    }
+                    onChange={(e) => setDuration((prev) => ({ ...prev, seconds: e.target.value }))}
                   />
                 </div>
               </div>
@@ -254,75 +295,193 @@ export default function EditQuestionPacks({ questionPack, allQuestions = [] }: P
               </div>
             </div>
 
-            {allQuestions.length > 0 && (
-              <div className="space-y-2">
-                <Label className="text-blue-500">Manage Questions</Label>
-                <ScrollArea className="h-64 border rounded-md">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[50px]"></TableHead>
-                        <TableHead>Question</TableHead>
-                        <TableHead className="w-[150px]">Type</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {allQuestions.map((question) => (
-                        <TableRow key={question.id}>
-                          <TableCell>
-                            <Checkbox
-                              checked={selectedQuestionIds.includes(question.id)}
-                              onCheckedChange={() => toggleQuestionSelection(question.id)}
-                            />
-                          </TableCell>
-                          <TableCell>{question.question_text}</TableCell>
-                          <TableCell>{question.question_type}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </ScrollArea>
-                <div className="text-sm text-gray-500">
-                  Selected {selectedQuestionIds.length} of {allQuestions.length} questions
+            {step === 2 && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <Label className="text-blue-500">Questions in this Pack</Label>
+                  <Button
+                    type="button"
+                    className="bg-blue-500 text-white hover:bg-blue-600"
+                    onClick={addEmptyQuestion}
+                  >
+                    + Add Question
+                  </Button>
                 </div>
+
+                {questions.length === 0 ? (
+                  <p className="text-sm text-gray-500">
+                    Belum ada pertanyaan. Klik &quot;Add Question&quot; untuk menambahkan.
+                  </p>
+                ) : (
+                  <ScrollArea className="h-[300px] border rounded-md p-4 space-y-4">
+                    {questions.map((question, index) => (
+                      <div key={index} className="space-y-3 border-b pb-4 last:border-b-0">
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium text-sm">Question {index + 1}</span>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => removeQuestion(index)}
+                          >
+                            Remove
+                          </Button>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label className="text-xs">Question Text</Label>
+                          <Input
+                            value={question.question_text}
+                            onChange={(e) =>
+                              updateQuestion(index, (q) => ({ ...q, question_text: e.target.value }))
+                            }
+                            placeholder="Masukkan teks pertanyaan"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div className="space-y-2">
+                            <Label className="text-xs">Question Type</Label>
+                            <Select
+                              value={question.question_type}
+                              onValueChange={(value) =>
+                                updateQuestion(index, (q) => ({
+                                  ...q,
+                                  question_type: value as NewQuestion['question_type'],
+                                  options: value === 'multiple_choice' ? q.options || ['', '', ''] : [],
+                                  correct_answer: value === 'multiple_choice' ? q.correct_answer : '',
+                                }))
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select type" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="multiple_choice">Multiple Choice</SelectItem>
+                                <SelectItem value="essay">Essay</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          {question.question_type === 'multiple_choice' && (
+                            <div className="space-y-2">
+                              <Label className="text-xs">Correct Answer (A, B, C, ...)</Label>
+                              <Select
+                                value={question.correct_answer.toUpperCase()}
+                                onValueChange={(value) =>
+                                  updateQuestion(index, (q) => ({ ...q, correct_answer: value }))
+                                }
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Pilih jawaban benar (A, B, C, ...)" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {question.options
+                                    .map((o) => o.trim())
+                                    .map((opt, idx) => ({ opt, idx }))
+                                    .filter(({ opt }) => opt !== '')
+                                    .map(({ idx }) => {
+                                      const letter = String.fromCharCode('A'.charCodeAt(0) + idx);
+                                      return (
+                                        <SelectItem key={letter} value={letter}>
+                                          {letter}
+                                        </SelectItem>
+                                      );
+                                    })}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
+                        </div>
+
+                        {question.question_type === 'multiple_choice' && (
+                          <div className="space-y-2">
+                            <Label className="text-xs">Options (A, B, C, ...)</Label>
+                            <div className="space-y-2">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                {question.options.map((opt, idx) => (
+                                  <Input
+                                    key={idx}
+                                    value={opt}
+                                    placeholder={`Option ${String.fromCharCode('A'.charCodeAt(0) + idx)}`}
+                                    onChange={(e) =>
+                                      updateQuestion(index, (q) => {
+                                        const nextOptions = [...q.options];
+                                        nextOptions[idx] = e.target.value;
+                                        return { ...q, options: nextOptions };
+                                      })
+                                    }
+                                  />
+                                ))}
+                              </div>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  updateQuestion(index, (q) => ({
+                                    ...q,
+                                    options:
+                                      q.options.length >= 26 ? q.options : [...q.options, ''],
+                                  }))
+                                }
+                              >
+                                + Add Option
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </ScrollArea>
+                )}
               </div>
             )}
           </CardContent>
-          <CardFooter className="flex justify-between p-6 pt-0">
+          <CardFooter className="flex justify-between p-6 pt-4">
             <Button
               variant="outline"
-              onClick={() => router.visit('/dashboard/questionpacks')}
+              className="gap-2"
+              onClick={() => {
+                if (step === 1) {
+                  router.visit('/dashboard/questionpacks');
+                } else {
+                  setStep(1);
+                }
+              }}
             >
-              Cancel
+              <ArrowLeft className="h-4 w-4" /> {step === 1 ? 'Back to Question Packs' : 'Back to Pack Info'}
             </Button>
-            <Button
-              onClick={handleSave}
-              className="bg-blue-500 text-white hover:bg-blue-600"
-              disabled={isSubmitting || !packName || !hasChanges}
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                'Save Changes'
-              )}
-            </Button>
+            {step === 1 ? (
+              <Button
+                type="button"
+                className="bg-blue-500 text-white hover:bg-blue-600"
+                disabled={!packName || !description || !testType}
+                onClick={() => setStep(2)}
+              >
+                Next: Edit Questions
+              </Button>
+            ) : (
+              <Button
+                onClick={handleSubmit}
+                className="bg-blue-500 text-white hover:bg-blue-600"
+                disabled={isSubmitting || questions.length === 0}
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  `Save Changes (${questions.length} Questions)`
+                )}
+              </Button>
+            )}
           </CardFooter>
         </Card>
       </div>
-
-      {/* Save Confirmation Dialog */}
-      <ConfirmationDialog
-        open={showConfirmDialog}
-        onOpenChange={setShowConfirmDialog}
-        title="Save Changes"
-        description="Are you sure you want to save these changes to the question pack?"
-        confirmLabel="Save"
-        cancelLabel="Cancel"
-        onConfirm={confirmSave}
-      />
     </AppLayout>
   );
 }
+
+

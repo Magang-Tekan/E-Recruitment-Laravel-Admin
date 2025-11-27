@@ -30,7 +30,6 @@ const companyNavItems: NavItem[] = [
 
 // Test and assessment submenu items
 const testAssessmentItems: NavItem[] = [
-    { title: 'Question Sets', href: '/dashboard/questions', icon: ClipboardList },
     { title: 'Question Packs', href: '/dashboard/questionpacks', icon: Package },
 ];
 

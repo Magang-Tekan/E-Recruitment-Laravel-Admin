@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Head, router } from '@inertiajs/react';
 import AppLayout from '@/layouts/app-layout';
 import { Button } from '@/components/ui/button';
@@ -7,10 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { type BreadcrumbItem } from '@/types';
-import { Loader2, Search, ArrowLeft } from 'lucide-react';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Loader2, ArrowLeft } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 const breadcrumbs: BreadcrumbItem[] = [
   { title: 'Dashboard', href: '/dashboard' },
@@ -19,93 +17,110 @@ const breadcrumbs: BreadcrumbItem[] = [
   { title: 'Add Question Pack', href: '/dashboard/questionpacks/create' },
 ];
 
-interface Question {
+interface NewQuestion {
   id: number;
   question_text: string;
-  question_type: string;
+  question_type: 'multiple_choice' | 'essay';
+  options: string[];
+  correct_answer: string;
 }
 
-interface Props {
-  questions?: Question[];
-}
-
-export default function AddQuestionPacks({ questions = [] }: Props) {
+export default function AddQuestionPacks() {
   const [packName, setPackName] = useState('');
   const [description, setDescription] = useState('');
   const [testType, setTestType] = useState('');
   const [duration, setDuration] = useState({ hours: '00', minutes: '60', seconds: '00' });
   const [opensAt, setOpensAt] = useState('');
   const [closesAt, setClosesAt] = useState('');
-  const [selectedQuestions, setSelectedQuestions] = useState<number[]>([]);
+
+  const [step, setStep] = useState<1 | 2>(1);
+  const [questions, setQuestions] = useState<NewQuestion[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filteredQuestions, setFilteredQuestions] = useState<Question[]>(questions);
 
-  // Filter questions based on search query
-  useEffect(() => {
-    if (searchQuery.trim()) {
-      const lowerCaseQuery = searchQuery.toLowerCase();
-      setFilteredQuestions(
-        questions.filter(
-          (q) =>
-            q.question_text.toLowerCase().includes(lowerCaseQuery) ||
-            q.question_type.toLowerCase().includes(lowerCaseQuery)
-        )
-      );
-    } else {
-      setFilteredQuestions(questions);
-    }
-  }, [questions, searchQuery]);
-
-  // Format duration to HH:MM:SS
   const formatDuration = () => {
-    return `${duration.hours.padStart(2, '0')}:${duration.minutes.padStart(2, '0')}:${duration.seconds.padStart(2, '0')}`;
+    return `${duration.hours.padStart(2, '0')}:${duration.minutes.padStart(2, '0')}:${duration.seconds.padStart(
+      2,
+      '0',
+    )}`;
+  };
+
+  const addEmptyQuestion = () => {
+    const nextId = questions.length + 1;
+    setQuestions([
+      ...questions,
+      {
+        id: nextId,
+        question_text: '',
+        question_type: 'multiple_choice',
+        options: ['', '', ''],
+        correct_answer: '',
+      },
+    ]);
+  };
+
+  const updateQuestion = (id: number, updater: (q: NewQuestion) => NewQuestion) => {
+    setQuestions(prev => prev.map(q => (q.id === id ? updater(q) : q)));
+  };
+
+  const removeQuestion = (id: number) => {
+    setQuestions(prev => prev.filter(q => q.id !== id));
   };
 
   const handleSubmit = () => {
-    setIsSubmitting(true);
-    
-    // Submit all question pack data at once
-    router.post('/dashboard/questionpacks', {
-      pack_name: packName,
-      description,
-      test_type: testType,
-      duration: formatDuration(),
-      opens_at: opensAt,
-      closes_at: closesAt,
-      question_ids: selectedQuestions,
-    }, {
-      onFinish: () => setIsSubmitting(false)
-    });
-  };
+    if (questions.length === 0) {
+      alert('Tambahkan minimal 1 pertanyaan untuk pack ini.');
+      return;
+    }
 
-  const toggleQuestionSelection = (questionId: number) => {
-    setSelectedQuestions(prev => 
-      prev.includes(questionId)
-        ? prev.filter(id => id !== questionId)
-        : [...prev, questionId]
+    // Validasi sederhana untuk multiple choice
+    for (const q of questions) {
+      if (!q.question_text.trim()) {
+        alert('Semua pertanyaan harus memiliki teks.');
+        return;
+      }
+
+      if (q.question_type === 'multiple_choice') {
+        const validOptions = q.options.map(o => o.trim()).filter(o => o !== '');
+        if (validOptions.length < 2) {
+          alert('Setiap pertanyaan multiple choice harus memiliki minimal 2 opsi.');
+          return;
+        }
+
+        const upper = q.correct_answer.trim().toUpperCase();
+        const allowedLetters = Array.from({ length: validOptions.length }, (_, i) =>
+          String.fromCharCode('A'.charCodeAt(0) + i),
+        );
+
+        if (!upper || !allowedLetters.includes(upper)) {
+          alert(`Correct answer harus berupa huruf ${allowedLetters.join(', ')} sesuai jumlah opsi.`);
+          return;
+        }
+      }
+    }
+
+    setIsSubmitting(true);
+
+    router.post(
+      '/dashboard/questionpacks',
+      {
+        pack_name: packName,
+        description,
+        test_type: testType,
+        duration: formatDuration(),
+        opens_at: opensAt,
+        closes_at: closesAt,
+        questions: questions.map(q => ({
+          question_text: q.question_text,
+          question_type: q.question_type,
+          options: q.question_type === 'multiple_choice' ? q.options : [],
+          correct_answer: q.question_type === 'multiple_choice' ? q.correct_answer : null,
+        })),
+      },
+      {
+        onFinish: () => setIsSubmitting(false),
+      },
     );
   };
-  
-  // Function to toggle all currently filtered questions
-  const toggleAll = (checked: boolean) => {
-    if (checked) {
-      const newIds = [...selectedQuestions];
-      filteredQuestions.forEach(q => {
-        if (!newIds.includes(q.id)) {
-          newIds.push(q.id);
-        }
-      });
-      setSelectedQuestions(newIds);
-    } else {
-      const filteredIds = filteredQuestions.map(q => q.id);
-      setSelectedQuestions(prev => prev.filter(id => !filteredIds.includes(id)));
-    }
-  };
-  
-  const areAllSelected = 
-    filteredQuestions.length > 0 &&
-    filteredQuestions.every((q) => selectedQuestions.includes(q.id));
 
   return (
     <AppLayout breadcrumbs={breadcrumbs}>
@@ -113,10 +128,11 @@ export default function AddQuestionPacks({ questions = [] }: Props) {
       <div className="flex flex-col p-6 gap-6">
         <Card className="w-full">
           <CardHeader>
-            <CardTitle>Create Question Pack</CardTitle>
+            <CardTitle>
+              {step === 1 ? 'Create Question Pack - Step 1 (Pack Info)' : 'Create Question Pack - Step 2 (Questions)'}
+            </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-6">
-
             <div className="space-y-2">
               <Label htmlFor="packName" className="text-blue-500">
                 Pack Name
@@ -125,7 +141,7 @@ export default function AddQuestionPacks({ questions = [] }: Props) {
                 id="packName"
                 placeholder="Enter pack name"
                 value={packName}
-                onChange={(e) => setPackName(e.target.value)}
+                onChange={e => setPackName(e.target.value)}
               />
             </div>
 
@@ -137,7 +153,7 @@ export default function AddQuestionPacks({ questions = [] }: Props) {
                 id="description"
                 placeholder="Enter description"
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                onChange={e => setDescription(e.target.value)}
               />
             </div>
 
@@ -146,7 +162,7 @@ export default function AddQuestionPacks({ questions = [] }: Props) {
                 <Label htmlFor="testType" className="text-blue-500">
                   Test Type
                 </Label>
-                <Select value={testType} onValueChange={(value) => setTestType(value)}>
+                <Select value={testType} onValueChange={value => setTestType(value)}>
                   <SelectTrigger id="testType">
                     <SelectValue placeholder="Select test type" />
                   </SelectTrigger>
@@ -173,9 +189,7 @@ export default function AddQuestionPacks({ questions = [] }: Props) {
                     placeholder="00"
                     className="w-10 text-center text-gray-500 outline-none bg-transparent"
                     value={duration.hours}
-                    onChange={(e) =>
-                      setDuration((prev) => ({ ...prev, hours: e.target.value }))
-                    }
+                    onChange={e => setDuration(prev => ({ ...prev, hours: e.target.value }))}
                   />
                   <span className="text-gray-400">:</span>
                   <input
@@ -185,9 +199,7 @@ export default function AddQuestionPacks({ questions = [] }: Props) {
                     placeholder="00"
                     className="w-10 text-center text-gray-500 outline-none bg-transparent"
                     value={duration.minutes}
-                    onChange={(e) =>
-                      setDuration((prev) => ({ ...prev, minutes: e.target.value }))
-                    }
+                    onChange={e => setDuration(prev => ({ ...prev, minutes: e.target.value }))}
                   />
                   <span className="text-gray-400">:</span>
                   <input
@@ -197,9 +209,7 @@ export default function AddQuestionPacks({ questions = [] }: Props) {
                     placeholder="00"
                     className="w-10 text-center text-gray-500 outline-none bg-transparent"
                     value={duration.seconds}
-                    onChange={(e) =>
-                      setDuration((prev) => ({ ...prev, seconds: e.target.value }))
-                    }
+                    onChange={e => setDuration(prev => ({ ...prev, seconds: e.target.value }))}
                   />
                 </div>
               </div>
@@ -214,7 +224,7 @@ export default function AddQuestionPacks({ questions = [] }: Props) {
                   id="opensAt"
                   type="datetime-local"
                   value={opensAt}
-                  onChange={(e) => setOpensAt(e.target.value)}
+                  onChange={e => setOpensAt(e.target.value)}
                 />
               </div>
 
@@ -226,97 +236,193 @@ export default function AddQuestionPacks({ questions = [] }: Props) {
                   id="closesAt"
                   type="datetime-local"
                   value={closesAt}
-                  onChange={(e) => setClosesAt(e.target.value)}
+                  onChange={e => setClosesAt(e.target.value)}
                 />
               </div>
             </div>
 
-            <div className="space-y-4">
-              <Label className="text-blue-500">Select Questions</Label>
-              
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-2 relative w-full max-w-sm">
-                  <Search className="absolute left-2.5 h-4 w-4 text-gray-500" />
-                  <Input
-                    className="pl-8"
-                    placeholder="Search questions..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
+            {step === 2 && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <Label className="text-blue-500">Questions in this Pack</Label>
+                  <Button type="button" className="bg-blue-500 text-white hover:bg-blue-600" onClick={addEmptyQuestion}>
+                    + Add Question
+                  </Button>
                 </div>
-                <div className="text-sm text-gray-500">
-                  Selected {selectedQuestions.length} of {questions.length} questions
-                </div>
-              </div>
 
-              <ScrollArea className="h-[300px] border rounded-md">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[50px]">
-                        <Checkbox
-                          checked={areAllSelected}
-                          onCheckedChange={toggleAll}
-                          disabled={filteredQuestions.length === 0}
-                        />
-                      </TableHead>
-                      <TableHead>Question</TableHead>
-                      <TableHead className="w-[150px]">Type</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredQuestions.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={3} className="h-24 text-center">
-                          {searchQuery
-                            ? 'No questions matching your search'
-                            : 'No questions available'}
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      filteredQuestions.map((question) => (
-                        <TableRow key={question.id}>
-                          <TableCell>
-                            <Checkbox
-                              checked={selectedQuestions.includes(question.id)}
-                              onCheckedChange={() => toggleQuestionSelection(question.id)}
-                            />
-                          </TableCell>
-                          <TableCell className="font-medium">{question.question_text}</TableCell>
-                          <TableCell>{question.question_type}</TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </ScrollArea>
-            </div>
+                {questions.length === 0 ? (
+                  <p className="text-sm text-gray-500">Belum ada pertanyaan. Klik "Add Question" untuk menambahkan.</p>
+                ) : (
+                  <ScrollArea className="h-[300px] border rounded-md p-4 space-y-4">
+                    {questions.map(question => (
+                      <div key={question.id} className="space-y-3 border-b pb-4 last:border-b-0">
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium text-sm">Question {question.id}</span>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => removeQuestion(question.id)}
+                          >
+                            Remove
+                          </Button>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label className="text-xs">Question Text</Label>
+                          <Input
+                            value={question.question_text}
+                            onChange={e =>
+                              updateQuestion(question.id, q => ({ ...q, question_text: e.target.value }))
+                            }
+                            placeholder="Masukkan teks pertanyaan"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div className="space-y-2">
+                            <Label className="text-xs">Question Type</Label>
+                            <Select
+                              value={question.question_type}
+                              onValueChange={value =>
+                                updateQuestion(question.id, q => ({
+                                  ...q,
+                                  question_type: value as NewQuestion['question_type'],
+                                  options: value === 'multiple_choice' ? q.options || ['', '', '', ''] : [],
+                                  correct_answer: value === 'multiple_choice' ? q.correct_answer : '',
+                                }))
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select type" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="multiple_choice">Multiple Choice</SelectItem>
+                                <SelectItem value="essay">Essay</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          {question.question_type === 'multiple_choice' && (
+                            <div className="space-y-2">
+                              <Label className="text-xs">Correct Answer (A, B, C, ...)</Label>
+                              <Select
+                                value={question.correct_answer.toUpperCase()}
+                                onValueChange={value =>
+                                  updateQuestion(question.id, q => ({ ...q, correct_answer: value }))
+                                }
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Pilih jawaban benar (A, B, C, ...)" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {question.options
+                                    .map(o => o.trim())
+                                    .map((opt, idx) => ({ opt, idx }))
+                                    .filter(({ opt }) => opt !== '')
+                                    .map(({ idx }) => {
+                                      const letter = String.fromCharCode('A'.charCodeAt(0) + idx);
+                                      return (
+                                        <SelectItem key={letter} value={letter}>
+                                          {letter}
+                                        </SelectItem>
+                                      );
+                                    })}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
+                        </div>
+
+                        {question.question_type === 'multiple_choice' && (
+                          <div className="space-y-2">
+                            <Label className="text-xs">Options (A, B, C, ...)</Label>
+                            <div className="space-y-2">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                {question.options.map((opt, idx) => (
+                                  <Input
+                                    key={idx}
+                                    value={opt}
+                                    placeholder={`Option ${String.fromCharCode('A'.charCodeAt(0) + idx)}`}
+                                    onChange={e =>
+                                      updateQuestion(question.id, q => {
+                                        const nextOptions = [...q.options];
+                                        nextOptions[idx] = e.target.value;
+                                        return { ...q, options: nextOptions };
+                                      })
+                                    }
+                                  />
+                                ))}
+                              </div>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  updateQuestion(question.id, q => ({
+                                    ...q,
+                                    // batasi maksimum 26 opsi (A-Z) agar masih terwakili huruf
+                                    options:
+                                      q.options.length >= 26 ? q.options : [...q.options, ''],
+                                  }))
+                                }
+                              >
+                                + Add Option
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </ScrollArea>
+                )}
+              </div>
+            )}
           </CardContent>
           <CardFooter className="flex justify-between p-6 pt-4">
             <Button
               variant="outline"
               className="gap-2"
-              onClick={() => router.visit('/dashboard/questionpacks')}
+              onClick={() => {
+                if (step === 1) {
+                  router.visit('/dashboard/questionpacks');
+                } else {
+                  setStep(1);
+                }
+              }}
             >
-              <ArrowLeft className="h-4 w-4" /> Back to Question Packs
+              <ArrowLeft className="h-4 w-4" /> {step === 1 ? 'Back to Question Packs' : 'Back to Pack Info'}
             </Button>
-            <Button
-              onClick={handleSubmit}
-              className="bg-blue-500 text-white hover:bg-blue-600"
-              disabled={isSubmitting || !packName || !description || !testType || selectedQuestions.length === 0}
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                `Save Question Pack (${selectedQuestions.length} Questions)`
-              )}
-            </Button>
+            {step === 1 ? (
+              <Button
+                type="button"
+                className="bg-blue-500 text-white hover:bg-blue-600"
+                disabled={!packName || !description || !testType}
+                onClick={() => setStep(2)}
+              >
+                Next: Add Questions
+              </Button>
+            ) : (
+              <Button
+                onClick={handleSubmit}
+                className="bg-blue-500 text-white hover:bg-blue-600"
+                disabled={isSubmitting || questions.length === 0}
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  `Save Question Pack (${questions.length} Questions)`
+                )}
+              </Button>
+            )}
           </CardFooter>
         </Card>
       </div>
     </AppLayout>
   );
 }
+
+
