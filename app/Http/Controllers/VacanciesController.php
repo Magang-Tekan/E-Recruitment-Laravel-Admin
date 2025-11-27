@@ -18,6 +18,7 @@ use Inertia\Inertia;
 use Carbon\Carbon;
 use App\Models\Period;
 use App\Models\VacancyPeriods;
+use Illuminate\Support\Facades\DB;
 
 class VacanciesController extends Controller
 {
@@ -131,7 +132,9 @@ class VacanciesController extends Controller
                 'education_level_id' => 'nullable|integer|exists:education_levels,id',
                 'vacancy_type_id' => 'required|integer|exists:vacancy_types,id',
                 'job_description' => 'nullable|string|max:1000',
-                'period_id' => 'required|integer|exists:periods,id',
+                'period_name' => 'required|string|max:255',
+                'period_start_time' => 'required|date',
+                'period_end_time' => 'required|date|after:period_start_time',
                 'psychotest_name' => 'nullable|string|max:255',
             ]);
             
@@ -149,42 +152,51 @@ class VacanciesController extends Controller
 
         try {
             $user_id = Auth::user()->id;
-            
-            // Prepare data for creation
-            $createData = [
-                'user_id' => $user_id,
-                'title' => $validated['title'],
-                'department_id' => $validated['department_id'],
-                'major_id' => null, // Always set to null, use majors relationship instead
-                'location' => $validated['location'],
-                'salary' => $validated['salary'] ?? null,
-                'company_id' => $validated['company_id'],
-                'requirements' => $validated['requirements'],
-                'benefits' => !empty($validated['benefits']) ? $validated['benefits'] : null,
-                'question_pack_id' => $validated['question_pack_id'] ?? null,
-                'education_level_id' => $validated['education_level_id'] ?? null,
-                'vacancy_type_id' => $validated['vacancy_type_id'],
-                'job_description' => $validated['job_description'] ?? null,
-                'psychotest_name' => $validated['psychotest_name'] ?? 'Tes Psikologi',
-            ];
-            
-            $job = Vacancies::create($createData);
+            $job = null;
 
-            // Sync majors (many-to-many relationship)
-            if (!empty($validated['major_ids']) && is_array($validated['major_ids']) && count($validated['major_ids']) > 0) {
-                $job->majors()->sync($validated['major_ids']);
-            } elseif (!empty($validated['major_id']) && is_numeric($validated['major_id'])) {
-                // Legacy support: if only major_id is provided, sync it
-                $job->majors()->sync([$validated['major_id']]);
-            }
+            DB::transaction(function () use ($validated, $user_id, &$job) {
+                // Buat period baru untuk lowongan ini
+                $period = Period::create([
+                    'name' => $validated['period_name'],
+                    'description' => null,
+                    'start_time' => $validated['period_start_time'],
+                    'end_time' => $validated['period_end_time'],
+                ]);
 
-            // Create vacancy-period relationship
-            if ($validated['period_id']) {
+                // Prepare data for creation
+                $createData = [
+                    'user_id' => $user_id,
+                    'title' => $validated['title'],
+                    'department_id' => $validated['department_id'],
+                    'major_id' => null, // Always set to null, use majors relationship instead
+                    'location' => $validated['location'],
+                    'salary' => $validated['salary'] ?? null,
+                    'company_id' => $validated['company_id'],
+                    'requirements' => $validated['requirements'],
+                    'benefits' => !empty($validated['benefits']) ? $validated['benefits'] : null,
+                    'question_pack_id' => $validated['question_pack_id'] ?? null,
+                    'education_level_id' => $validated['education_level_id'] ?? null,
+                    'vacancy_type_id' => $validated['vacancy_type_id'],
+                    'job_description' => $validated['job_description'] ?? null,
+                    'psychotest_name' => $validated['psychotest_name'] ?? 'Tes Psikologi',
+                ];
+                
+                $job = Vacancies::create($createData);
+
+                // Sync majors (many-to-many relationship)
+                if (!empty($validated['major_ids']) && is_array($validated['major_ids']) && count($validated['major_ids']) > 0) {
+                    $job->majors()->sync($validated['major_ids']);
+                } elseif (!empty($validated['major_id']) && is_numeric($validated['major_id'])) {
+                    // Legacy support: if only major_id is provided, sync it
+                    $job->majors()->sync([$validated['major_id']]);
+                }
+
+                // Create vacancy-period relationship ke period baru
                 VacancyPeriods::create([
                     'vacancy_id' => $job->id,
-                    'period_id' => $validated['period_id'],
+                    'period_id' => $period->id,
                 ]);
-            }
+            });
 
             // Load the relationships
             $job->load(['company', 'department', 'major', 'majors', 'questionPack', 'educationLevel', 'vacancyType']);

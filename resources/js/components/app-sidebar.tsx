@@ -23,11 +23,6 @@ import '../../../resources/css/app.css';
 
 const dashboardNavItems: NavItem[] = [{ title: 'Dashboard', href: '/dashboard', icon: LayoutGrid }];
 
-// Company navigation items
-const companyNavItems: NavItem[] = [
-    { title: 'Company Periods', href: '/dashboard/companies', icon: Building2 },
-];
-
 // Test and assessment submenu items
 const testAssessmentItems: NavItem[] = [
     { title: 'Question Packs', href: '/dashboard/questionpacks', icon: Package },
@@ -38,7 +33,6 @@ const mainNavItems: { name: string; icon: React.ElementType; href?: string; item
     { name: 'User Management', href: '/dashboard/users', icon: User },
     { name: 'Company Management', href: '/dashboard/company-management', icon: Settings }, // Menggunakan icon Settings
     { name: 'Department Management', href: '/dashboard/management/department-stage', icon: FolderTree }, // Menambahkan Department Management
-    { name: 'Job Management', href: '/dashboard/jobs', icon: SearchIcon },
     { name: 'Test & Assessment', icon: LucideFileQuestion, items: testAssessmentItems },
 ];
 
@@ -105,9 +99,6 @@ export function AppSidebar({ navigation, sharedSubItems }: { navigation: any[], 
 
             <SidebarContent>
                 <SidebarNavGroup title="Dashboard" items={dashboardNavItems} />
-
-                {/* Company Section */}
-                <SidebarNavGroup title="Company" items={companyNavItems} />
 
                 {/* Management Section */}
                 <SidebarGroup>

@@ -9,7 +9,7 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@radix-ui/react-select';
-import { AlertTriangle, Building2, Edit, Filter, Mail, MapPin, Phone, Plus, Search, Trash2, Globe } from 'lucide-react';
+import { AlertTriangle, BarChart2, Building2, Edit, Filter, Mail, MapPin, Phone, Plus, Search, Trash2, Globe } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -231,9 +231,9 @@ export default function CompanyManagement({ companies, flash }: Props) {
                                         <Card key={company.id} className="relative">
                                             <CardHeader>
                                                 <div className="flex items-start justify-between">
-                                                    <div className="flex-1">
+                                                    <div className="flex-1 space-y-1">
                                                         <h3 className="font-semibold text-lg">{company.name}</h3>
-                                                        <Badge variant="outline" className="mt-1">
+                                                        <Badge variant="outline">
                                                             Active
                                                         </Badge>
                                                     </div>
@@ -291,6 +291,17 @@ export default function CompanyManagement({ companies, flash }: Props) {
                                                             </a>
                                                         </div>
                                                     )}
+                                                </div>
+                                                <div className="mt-4 flex gap-2 border-t pt-4">
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="flex-1"
+                                                        onClick={() => router.get(route('companies.dashboard', company.id))}
+                                                    >
+                                                        <BarChart2 className="mr-2 h-4 w-4" />
+                                                        View Dashboard
+                                                    </Button>
                                                 </div>
                                             </CardContent>
                                         </Card>

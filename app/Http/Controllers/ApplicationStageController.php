@@ -556,6 +556,14 @@ class ApplicationStageController extends Controller
             });
         }
 
+        // Filter by vacancy if provided
+        if ($request->has('vacancy')) {
+            $vacancyId = $request->query('vacancy');
+            $query->whereHas('vacancyPeriod.vacancy', function($q) use ($vacancyId) {
+                $q->where('id', $vacancyId);
+            });
+        }
+
         // Filter by period if provided
         if ($request->has('period')) {
             $periodId = $request->query('period');
@@ -614,7 +622,7 @@ class ApplicationStageController extends Controller
         $periodInfo = null;
         $companyInfo = null;
 
-        if ($request->has('period') || $request->has('company')) {
+        if ($request->has('period') || $request->has('company') || $request->has('vacancy')) {
             // Get the vacancy period that matches our filters
             $vacancyPeriodQuery = VacancyPeriods::query()
                 ->with(['vacancy.company', 'period']);
@@ -623,9 +631,14 @@ class ApplicationStageController extends Controller
                 $vacancyPeriodQuery->where('period_id', $request->query('period'));
             }
 
-            if ($request->has('company')) {
+            if ($request->has('company') || $request->has('vacancy')) {
                 $vacancyPeriodQuery->whereHas('vacancy', function($q) use ($request) {
-                    $q->where('company_id', $request->query('company'));
+                    if ($request->has('company')) {
+                        $q->where('company_id', $request->query('company'));
+                    }
+                    if ($request->has('vacancy')) {
+                        $q->where('id', $request->query('vacancy'));
+                    }
                 });
             }
 
@@ -659,7 +672,7 @@ class ApplicationStageController extends Controller
             ],
             'filters' => [
                 'company' => $request->query('company'),
-                'period' => $request->query('period'),
+                'vacancy' => $request->query('vacancy'),
             ],
             'periodInfo' => $periodInfo ? [
                 'name' => $periodInfo['name'],
@@ -1035,7 +1048,7 @@ class ApplicationStageController extends Controller
                 'message' => 'Assessment status not found',
                 'filters' => [
                     'company' => $request->query('company'),
-                    'period' => $request->query('period'),
+                    'vacancy' => $request->query('vacancy'),
                 ],
             ]);
         }
@@ -1216,7 +1229,7 @@ class ApplicationStageController extends Controller
             ],
             'filters' => [
                 'company' => $request->query('company'),
-                'period' => $request->query('period'),
+                'vacancy' => $request->query('vacancy'),
             ],
             'periodInfo' => $periodInfo,
             'companyInfo' => $companyInfo,
@@ -1247,7 +1260,7 @@ class ApplicationStageController extends Controller
                 'message' => 'Interview status not found',
                 'filters' => [
                     'company' => $request->query('company'),
-                    'period' => $request->query('period'),
+                    'vacancy' => $request->query('vacancy'),
                 ],
             ]);
         }
@@ -1383,7 +1396,7 @@ class ApplicationStageController extends Controller
             ],
             'filters' => [
                 'company' => $request->query('company'),
-                'period' => $request->query('period'),
+                'vacancy' => $request->query('vacancy'),
             ],
             'periodInfo' => $periodInfo,
             'companyInfo' => $companyInfo,
@@ -1876,7 +1889,6 @@ class ApplicationStageController extends Controller
                 ],
                 'filters' => [
                     'company' => $request->query('company'),
-                    'period' => $request->query('period'),
                     'sort' => $sortColumn ?? 'created_at',
                     'order' => $sortOrder ?? 'desc',
                 ],
@@ -1895,7 +1907,6 @@ class ApplicationStageController extends Controller
                 ],
                 'filters' => [
                     'company' => $request->query('company'),
-                    'period' => $request->query('period'),
                     'sort' => 'created_at',
                     'order' => 'desc',
                 ],

@@ -396,8 +396,59 @@ class CompanyController extends Controller
 
     public function show(Company $company)
     {
-        return Inertia::render('admin/companies/show', [
-            'company' => $company
+        return $this->dashboard($company);
+    }
+
+    /**
+     * Company dashboard with basic statistics and vacancy list.
+     */
+    public function dashboard(Company $company)
+    {
+        $now = Carbon::now();
+
+        // Vacancies for this company
+        $vacancies = Vacancies::where('company_id', $company->id)
+            ->with('department')
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(function ($vacancy) {
+                return [
+                    'id' => $vacancy->id,
+                    'title' => $vacancy->title,
+                    'department' => $vacancy->department ? $vacancy->department->name : 'Unknown',
+                    'created_at' => $vacancy->created_at ? $vacancy->created_at->format('d M Y') : null,
+                ];
+            })
+            ->values();
+
+        // Stats
+        $totalVacancies = $vacancies->count();
+
+        $totalApplicants = Application::whereHas('vacancyPeriod.vacancy', function ($q) use ($company) {
+            $q->where('company_id', $company->id);
+        })->count();
+
+        $openPeriods = Period::whereHas('vacancies', function ($q) use ($company) {
+            $q->where('company_id', $company->id);
+        })
+            ->whereNotNull('start_time')
+            ->whereNotNull('end_time')
+            ->where('start_time', '<=', $now)
+            ->where('end_time', '>=', $now)
+            ->count();
+
+        return Inertia::render('admin/company/dashboard', [
+            'company' => [
+                'id' => $company->id,
+                'name' => $company->name,
+                'description' => $company->description,
+            ],
+            'stats' => [
+                'totalVacancies' => $totalVacancies,
+                'totalApplicants' => $totalApplicants,
+                'openPeriods' => $openPeriods,
+            ],
+            'vacancies' => $vacancies,
         ]);
     }
 
@@ -668,6 +719,7 @@ class CompanyController extends Controller
         try {
             $periodId = $request->query('period');
             $search = $request->query('search', '');
+            $vacancyId = $request->query('vacancy');
             $perPage = $request->query('per_page', 10);
             $page = $request->query('page', 1);
 
@@ -708,8 +760,11 @@ class CompanyController extends Controller
             },
             'status'
         ])
-        ->whereHas('vacancyPeriod.vacancy', function ($q) use ($company) {
+        ->whereHas('vacancyPeriod.vacancy', function ($q) use ($company, $vacancyId) {
             $q->where('company_id', $company->id);
+            if ($vacancyId) {
+                $q->where('id', $vacancyId);
+            }
         });
 
         // Filter by period if provided
@@ -797,6 +852,7 @@ class CompanyController extends Controller
             'filters' => [
                 'search' => $search,
                 'period' => $periodId ? (int)$periodId : null,
+                'vacancy' => $vacancyId ? (int)$vacancyId : null,
             ],
         ]);
         } catch (\Exception $e) {
