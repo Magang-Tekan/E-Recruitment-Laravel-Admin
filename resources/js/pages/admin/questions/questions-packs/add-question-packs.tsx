@@ -251,13 +251,26 @@ export default function AddQuestionPacks() {
                 </div>
 
                 {questions.length === 0 ? (
-                  <p className="text-sm text-gray-500">Belum ada pertanyaan. Klik "Add Question" untuk menambahkan.</p>
+                  <p className="text-sm text-gray-500">
+                    Belum ada pertanyaan. Klik "Add Question" untuk menambahkan.
+                  </p>
                 ) : (
-                  <ScrollArea className="h-[300px] border rounded-md p-4 space-y-4">
+                  <div className="space-y-4">
                     {questions.map(question => (
-                      <div key={question.id} className="space-y-3 border-b pb-4 last:border-b-0">
+                      <div
+                        key={question.id}
+                        className="space-y-3 rounded-lg border bg-white p-4 shadow-sm"
+                      >
                         <div className="flex items-center justify-between">
-                          <span className="font-medium text-sm">Question {question.id}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-blue-500 text-xs font-semibold text-white">
+                              {question.id}
+                            </span>
+                            <span className="text-sm font-medium">Question</span>
+                            <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium uppercase text-blue-700">
+                              {question.question_type === 'multiple_choice' ? 'Multiple Choice' : 'Essay'}
+                            </span>
+                          </div>
                           <Button
                             type="button"
                             variant="outline"
@@ -268,8 +281,8 @@ export default function AddQuestionPacks() {
                           </Button>
                         </div>
 
-                        <div className="space-y-2">
-                          <Label className="text-xs">Question Text</Label>
+                        <div className="space-y-1">
+                          <Label className="text-xs font-medium text-gray-700">Question Text</Label>
                           <Input
                             value={question.question_text}
                             onChange={e =>
@@ -374,7 +387,7 @@ export default function AddQuestionPacks() {
                         )}
                       </div>
                     ))}
-                  </ScrollArea>
+                  </div>
                 )}
               </div>
             )}
