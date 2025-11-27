@@ -78,6 +78,7 @@ export default function EditQuestionPacks({ questionPack }: Props) {
   });
 
   const [step, setStep] = useState<1 | 2>(1);
+  const [searchQuery, setSearchQuery] = useState('');
   const [questions, setQuestions] = useState<NewQuestion[]>(() =>
     (questionPack.questions || []).map((q) => ({
       id: q.id,
@@ -297,15 +298,37 @@ export default function EditQuestionPacks({ questionPack }: Props) {
 
             {step === 2 && (
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Label className="text-blue-500">Questions in this Pack</Label>
-                  <Button
-                    type="button"
-                    className="bg-blue-500 text-white hover:bg-blue-600"
-                    onClick={addEmptyQuestion}
-                  >
-                    + Add Question
-                  </Button>
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div className="space-y-1">
+                    <Label className="text-blue-500">Questions in this Pack</Label>
+                    <p className="text-xs text-gray-500">
+                      Cari berdasarkan nomor (1, 2, 3, ...) atau isi teks soal.
+                    </p>
+                  </div>
+                  <div className="flex flex-1 gap-2 md:flex-none">
+                    <Input
+                      placeholder="Search question number or text..."
+                      className="max-w-xs"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setSearchQuery('')}
+                      className="text-xs"
+                      disabled={!searchQuery.trim()}
+                    >
+                      Clear
+                    </Button>
+                    <Button
+                      type="button"
+                      className="bg-blue-500 text-white hover:bg-blue-600"
+                      onClick={addEmptyQuestion}
+                    >
+                      + Add Question
+                    </Button>
+                  </div>
                 </div>
 
                 {questions.length === 0 ? (
@@ -313,11 +336,31 @@ export default function EditQuestionPacks({ questionPack }: Props) {
                     Belum ada pertanyaan. Klik &quot;Add Question&quot; untuk menambahkan.
                   </p>
                 ) : (
-                  <ScrollArea className="h-[300px] border rounded-md p-4 space-y-4">
-                    {questions.map((question, index) => (
-                      <div key={index} className="space-y-3 border-b pb-4 last:border-b-0">
+                  <div className="space-y-4">
+                    {questions
+                      .map((q, index) => ({ q, index }))
+                      .filter(({ q, index }) => {
+                        if (!searchQuery.trim()) return true;
+                        const query = searchQuery.trim().toLowerCase();
+                        const byNumber = (index + 1).toString().includes(query);
+                        const byText = q.question_text.toLowerCase().includes(query);
+                        return byNumber || byText;
+                      })
+                      .map(({ q: question, index }) => (
+                      <div
+                        key={index}
+                        className="space-y-3 rounded-lg border bg-white p-4 shadow-sm"
+                      >
                         <div className="flex items-center justify-between">
-                          <span className="font-medium text-sm">Question {index + 1}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-blue-500 text-xs font-semibold text-white">
+                              {index + 1}
+                            </span>
+                            <span className="text-sm font-medium">Question</span>
+                            <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium uppercase text-blue-700">
+                              {question.question_type === 'multiple_choice' ? 'Multiple Choice' : 'Essay'}
+                            </span>
+                          </div>
                           <Button
                             type="button"
                             variant="outline"
@@ -433,7 +476,7 @@ export default function EditQuestionPacks({ questionPack }: Props) {
                         )}
                       </div>
                     ))}
-                  </ScrollArea>
+                  </div>
                 )}
               </div>
             )}
