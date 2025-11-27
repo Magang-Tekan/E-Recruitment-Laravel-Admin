@@ -116,10 +116,13 @@ export default function EditJob({ job, companies, departments, majors, questionP
                 period_id: parseInt(formData.period_id),
             };
 
-            await router.put(route('admin.jobs.update', { id: job.id }), data);
-            router.visit(route('admin.jobs.index'));
+            // Biarkan Inertia mengikuti redirect dari backend.
+            // Jangan lakukan router.visit kedua kali, supaya request tidak tercancel.
+            await router.put(route('admin.jobs.update', { id: job.id }), data, {
+                preserveScroll: true,
+                onFinish: () => setIsLoading(false),
+            });
         } catch (error) {
-        } finally {
             setIsLoading(false);
         }
     };
