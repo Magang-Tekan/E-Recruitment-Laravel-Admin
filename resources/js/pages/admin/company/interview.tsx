@@ -18,7 +18,7 @@ interface Props {
     };
     filters?: {
         company?: string;
-        period?: string;
+        vacancy?: string;
     };
     companyInfo?: {
         name: string;
@@ -87,7 +87,7 @@ export default function Interview({ candidates, filters, companyInfo, periodInfo
                     <button
                         className="flex-1 px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700"
                         onClick={() => router.visit('/dashboard/recruitment/administration', {
-                            data: { company: filters?.company, period: filters?.period }
+                            data: { company: filters?.company, vacancy: filters?.vacancy }
                         })}
                     >
                         Administration
@@ -95,7 +95,7 @@ export default function Interview({ candidates, filters, companyInfo, periodInfo
                     <button
                         className="flex-1 px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700"
                         onClick={() => router.visit('/dashboard/recruitment/assessment', {
-                            data: { company: filters?.company, period: filters?.period }
+                            data: { company: filters?.company, vacancy: filters?.vacancy }
                         })}
                     >
                         Assessment
@@ -103,7 +103,7 @@ export default function Interview({ candidates, filters, companyInfo, periodInfo
                     <button
                         className="flex-1 border-b-2 border-primary px-4 py-2 text-sm font-medium text-primary"
                         onClick={() => router.visit('/dashboard/recruitment/interview', {
-                            data: { company: filters?.company, period: filters?.period }
+                            data: { company: filters?.company, vacancy: filters?.vacancy }
                         })}
                     >
                         Interview
@@ -111,7 +111,7 @@ export default function Interview({ candidates, filters, companyInfo, periodInfo
                     <button
                         className="flex-1 px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700"
                         onClick={() => router.visit('/dashboard/recruitment/reports', {
-                            data: { company: filters?.company, period: filters?.period }
+                            data: { company: filters?.company, vacancy: filters?.vacancy }
                         })}
                     >
                         Reports

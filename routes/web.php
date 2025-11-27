@@ -52,6 +52,7 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/create', [CompanyController::class, 'create'])->name('create');
             Route::post('/', [CompanyController::class, 'store'])->name('store');
             Route::get('/{company}', [CompanyController::class, 'show'])->name('show');
+            Route::get('/{company}/dashboard', [CompanyController::class, 'dashboard'])->name('dashboard');
             Route::get('/{company}/edit', [CompanyController::class, 'edit'])->name('edit');
             Route::put('/{company}', [CompanyController::class, 'update'])->name('update');
             Route::delete('/{company}', [CompanyController::class, 'destroy'])->name('destroy');
