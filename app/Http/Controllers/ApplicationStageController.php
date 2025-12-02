@@ -82,6 +82,14 @@ class ApplicationStageController extends Controller
             });
         }
 
+        // Filter by vacancy if provided
+        if ($request->has('vacancy')) {
+            $vacancyId = $request->query('vacancy');
+            $query->whereHas('vacancyPeriod.vacancy', function ($q) use ($vacancyId) {
+                $q->where('id', $vacancyId);
+            });
+        }
+
         // Get applications that should be in this stage
         if ($stage === 'psychological_test') {
             // For assessment/psychological_test stage, show ALL candidates who have been through this stage
@@ -1227,6 +1235,14 @@ class ApplicationStageController extends Controller
             });
         }
 
+        // Filter by vacancy if provided
+        if ($request->has('vacancy')) {
+            $vacancyId = $request->query('vacancy');
+            $query->whereHas('vacancyPeriod.vacancy', function($q) use ($vacancyId) {
+                $q->where('id', $vacancyId);
+            });
+        }
+
         // Filter by period if provided
         if ($request->has('period')) {
             $periodId = $request->query('period');
@@ -1425,6 +1441,14 @@ class ApplicationStageController extends Controller
             $companyId = $request->query('company');
             $query->whereHas('vacancyPeriod.vacancy', function($q) use ($companyId) {
                 $q->where('company_id', $companyId);
+            });
+        }
+
+        // Filter by vacancy if provided
+        if ($request->has('vacancy')) {
+            $vacancyId = $request->query('vacancy');
+            $query->whereHas('vacancyPeriod.vacancy', function($q) use ($vacancyId) {
+                $q->where('id', $vacancyId);
             });
         }
 
@@ -1879,6 +1903,14 @@ class ApplicationStageController extends Controller
             if ($request->has('company')) {
                 $query->whereHas('vacancyPeriod.vacancy', function($q) use ($request) {
                     $q->where('company_id', $request->company);
+                });
+            }
+
+            // Filter by vacancy if provided
+            if ($request->has('vacancy')) {
+                $vacancyId = $request->query('vacancy');
+                $query->whereHas('vacancyPeriod.vacancy', function($q) use ($vacancyId) {
+                    $q->where('id', $vacancyId);
                 });
             }
 
