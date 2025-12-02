@@ -394,17 +394,18 @@ class CompanyController extends Controller
         }
     }
 
-    public function show(Company $company)
+    public function show(Company $company, Request $request)
     {
-        return $this->dashboard($company);
+        return $this->dashboard($company, $request);
     }
 
     /**
      * Company dashboard with basic statistics and vacancy list.
      */
-    public function dashboard(Company $company)
+    public function dashboard(Company $company, Request $request)
     {
         $now = Carbon::now();
+        $from = $request->query('from', 'company-management'); // Default to company-management
 
         // Vacancies for this company
         $vacancies = Vacancies::where('company_id', $company->id)
@@ -449,6 +450,7 @@ class CompanyController extends Controller
                 'openPeriods' => $openPeriods,
             ],
             'vacancies' => $vacancies,
+            'from' => $from,
         ]);
     }
 
@@ -722,6 +724,7 @@ class CompanyController extends Controller
             $vacancyId = $request->query('vacancy');
             $perPage = $request->query('per_page', 10);
             $page = $request->query('page', 1);
+            $from = $request->query('from', 'company-management'); // Default to company-management
 
         // Get open periods for this company
         $now = Carbon::now();
@@ -854,6 +857,7 @@ class CompanyController extends Controller
                 'period' => $periodId ? (int)$periodId : null,
                 'vacancy' => $vacancyId ? (int)$vacancyId : null,
             ],
+            'from' => $from,
         ]);
         } catch (\Exception $e) {
             Log::error('Error in CompanyController@candidates: ' . $e->getMessage(), [

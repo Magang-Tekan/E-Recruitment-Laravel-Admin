@@ -26,6 +26,20 @@ class ApplicationStageController extends Controller
     ];
 
     /**
+     * Display company selection page for recruitment
+     */
+    public function companySelection(): Response
+    {
+        $companies = Company::orderBy('display_order', 'asc')
+            ->orderBy('name', 'asc')
+            ->get();
+        
+        return Inertia::render('admin/recruitment/company-selection', [
+            'companies' => $companies
+        ]);
+    }
+
+    /**
      * Display applications for a specific stage
      */
     public function index(Request $request, string $stage)
@@ -532,7 +546,22 @@ class ApplicationStageController extends Controller
 
         // Build the base query
         $query = Application::with([
-            'user:id,name,email',
+            'user' => function ($q) {
+                $q->with([
+                    'candidatesProfile',
+                    'candidatesEducations' => function ($q) {
+                        $q->with(['educationLevel:id,name', 'major:id,name']);
+                    },
+                    'candidatesSkills:id,user_id,skill_name',
+                    'candidatesLanguages:id,user_id,language_name',
+                    'candidatesCertifications',
+                    'candidatesWorkExperiences',
+                    'candidatesOrganizations',
+                    'candidatesCV' => function ($q) {
+                        $q->latest();
+                    }
+                ]);
+            },
             'vacancyPeriod' => function($query) {
                 $query->select('id', 'vacancy_id', 'period_id')
                     ->with(['vacancy:id,title,company_id', 'period:id,name,start_time,end_time']);
@@ -582,6 +611,102 @@ class ApplicationStageController extends Controller
                 return $history->status && $history->status->stage === 'administrative_selection';
             })->first();
             
+            // Get highest education (by level priority)
+            $highestEducation = null;
+            if ($application->user->candidatesEducations->isNotEmpty()) {
+                // Define education level priority (higher number = higher priority)
+                // Based on EducationLevelSeeder: SMP, SMA/SMK, D1, D2, D3, D4/S1, S2, S3
+                $levelPriority = [
+                    'S3' => 8,
+                    'S2' => 7,
+                    'D4/S1' => 6,
+                    'S1' => 6,
+                    'D4' => 6,
+                    'D3' => 5,
+                    'D2' => 4,
+                    'D1' => 3,
+                    'SMA/SMK' => 2,
+                    'SMP' => 1,
+                    'SD' => 0,
+                ];
+                
+                $highestEducation = $application->user->candidatesEducations
+                    ->sortByDesc(function($edu) use ($levelPriority) {
+                        $levelName = $edu->educationLevel ? $edu->educationLevel->name : '';
+                        // Check exact match first, then partial match
+                        $priority = 0;
+                        foreach ($levelPriority as $code => $prio) {
+                            if ($levelName === $code || str_contains($levelName, $code)) {
+                                $priority = max($priority, $prio);
+                            }
+                        }
+                        return $priority;
+                    })
+                    ->first();
+            }
+            
+            // Calculate age from date of birth
+            $age = null;
+            if ($application->user->candidatesProfile && $application->user->candidatesProfile->date_of_birth) {
+                $birthDate = \Carbon\Carbon::parse($application->user->candidatesProfile->date_of_birth);
+                $age = $birthDate->age;
+            }
+            
+            // Build candidate data - always include, even if profile is null
+            $candidateData = [
+                'profile' => $application->user->candidatesProfile ? [
+                    'phone_number' => $application->user->candidatesProfile->phone_number,
+                    'address' => $application->user->candidatesProfile->address,
+                    'place_of_birth' => $application->user->candidatesProfile->place_of_birth,
+                    'date_of_birth' => $application->user->candidatesProfile->date_of_birth,
+                    'gender' => $application->user->candidatesProfile->gender,
+                    'profile_image' => $application->user->candidatesProfile->profile_image,
+                ] : null,
+                'age' => $age,
+                'highest_education' => $highestEducation ? [
+                    'level' => $highestEducation->educationLevel ? $highestEducation->educationLevel->name : null,
+                    'institution' => $highestEducation->institution_name,
+                    'faculty' => $highestEducation->faculty,
+                    'major' => $highestEducation->major ? $highestEducation->major->name : null,
+                    'start_year' => $highestEducation->year_in,
+                    'end_year' => $highestEducation->year_out,
+                    'gpa' => $highestEducation->gpa,
+                ] : null,
+                'education' => $application->user->candidatesEducations->map(fn($edu) => [
+                    'level' => $edu->educationLevel ? $edu->educationLevel->name : null,
+                    'institution' => $edu->institution_name,
+                    'faculty' => $edu->faculty,
+                    'major' => $edu->major ? $edu->major->name : null,
+                    'start_year' => $edu->year_in,
+                    'end_year' => $edu->year_out,
+                    'gpa' => $edu->gpa,
+                ])->toArray(),
+                'work_experiences' => $application->user->candidatesWorkExperiences->map(fn($exp) => [
+                    'company' => $exp->company,
+                    'position' => $exp->position,
+                    'start_date' => $exp->start_date,
+                    'end_date' => $exp->end_date,
+                    'description' => $exp->description,
+                ])->toArray(),
+                'skills' => $application->user->candidatesSkills->pluck('skill_name')->toArray(),
+                'languages' => $application->user->candidatesLanguages->map(fn($lang) => [
+                    'name' => $lang->language_name,
+                    'level' => '', // Level is included in the language_name
+                ])->toArray(),
+                'certifications' => $application->user->candidatesCertifications->map(fn($cert) => [
+                    'name' => $cert->name,
+                    'issuer' => $cert->issuer,
+                    'date' => $cert->date,
+                ])->toArray(),
+                'organizations' => $application->user->candidatesOrganizations->map(fn($org) => [
+                    'name' => $org->name,
+                    'position' => $org->position,
+                    'start_year' => $org->start_year,
+                    'end_year' => $org->end_year,
+                ])->toArray(),
+                'cv' => $application->user->candidatesCV?->path,
+            ];
+            
             $data = [
                 'id' => $application->id,
                 'user' => [
@@ -599,6 +724,14 @@ class ApplicationStageController extends Controller
                 'score' => $adminHistory?->score,
                 'reviewed_by' => $adminHistory?->reviewer?->name,
                 'completed_at' => $adminHistory?->completed_at,
+                // Add status for checking if rejected
+                'status' => $application->status ? [
+                    'id' => $application->status->id,
+                    'name' => $application->status->name,
+                    'code' => $application->status->code,
+                ] : null,
+                // Add candidate data for expandable detail
+                'candidate' => $candidateData,
                 // Add all history for UI display
                 'history' => $application->history->map(fn($history) => [
                     'id' => $history->id,
@@ -2152,6 +2285,48 @@ class ApplicationStageController extends Controller
             
             $mappedStage = $stageMap[$stage] ?? $stage;
             
+            // Check if this stage has already been reviewed (completed with reviewed_by)
+            // Prevent changes if already reviewed or if application status has changed
+            $statusCodeMap = [
+                'administrative_selection' => 'admin_selection',
+                'psychological_test' => 'psychotest',
+                'interview' => 'interview',
+            ];
+            
+            $statusCode = $statusCodeMap[$mappedStage] ?? null;
+            
+            if ($statusCode) {
+                // Check if application status has already changed (rejected or moved to next stage)
+                $currentStatus = $application->status;
+                if ($currentStatus && $currentStatus->code !== $statusCode && $currentStatus->code !== 'rejected') {
+                    // Application has moved to a different stage, cannot change this stage anymore
+                    DB::rollBack();
+                    return back()->withErrors(['error' => 'Candidate has already moved to the next stage. Changes to this stage are not allowed.']);
+                }
+                
+                // Check if there's a completed history for this stage with reviewed_by
+                $completedHistory = $application->history()
+                    ->whereHas('status', function($q) use ($statusCode) {
+                        $q->where('code', $statusCode);
+                    })
+                    ->where('is_active', false)
+                    ->whereNotNull('reviewed_by')
+                    ->whereNotNull('score')
+                    ->orderBy('completed_at', 'desc')
+                    ->first();
+                
+                if ($completedHistory) {
+                    DB::rollBack();
+                    return back()->withErrors(['error' => 'Candidate has already been reviewed for this stage. Changes are not allowed.']);
+                }
+                
+                // Additional check: if application is rejected, cannot change
+                if ($currentStatus && $currentStatus->code === 'rejected') {
+                    DB::rollBack();
+                    return back()->withErrors(['error' => 'Candidate has been rejected. Changes are not allowed.']);
+                }
+            }
+            
             // Load necessary relations based on stage
             if ($mappedStage === 'psychological_test') {
                 $application->load(['userAnswers.choice']);
@@ -3056,29 +3231,41 @@ class ApplicationStageController extends Controller
      */
     public function downloadCV($id)
     {
-        $application = Application::with(['user.candidatesCV'])->findOrFail($id);
-        
-        if (!$application->user->candidatesCV) {
-            abort(404, 'CV not found');
-        }
-        
-        $cv = $application->user->candidatesCV;
-        
-        // Check if file exists
-        $filePath = storage_path('app/' . $cv->cv_path);
-        if (!file_exists($filePath)) {
-            // Try alternative path
-            $filePath = public_path($cv->cv_path);
-            if (!file_exists($filePath)) {
-                abort(404, 'CV file not found');
+        try {
+            $application = Application::with(['user.candidatesCV'])->findOrFail($id);
+            
+            if (!$application->user->candidatesCV) {
+                // If CV doesn't exist, try to generate it first
+                return $this->generateCV($id);
             }
+            
+            $cv = $application->user->candidatesCV;
+            
+            // CV path is stored as 'cv/{user_id}/filename.pdf' and saved in storage/app/public/
+            // So the full path should be storage/app/public/cv/{user_id}/filename.pdf
+            $filePath = storage_path('app/public/' . $cv->cv_path);
+            
+            if (!file_exists($filePath)) {
+                // Try alternative path (if stored differently)
+                $filePath = storage_path('app/' . $cv->cv_path);
+                if (!file_exists($filePath)) {
+                    // Try public path
+                    $filePath = public_path('storage/' . $cv->cv_path);
+                    if (!file_exists($filePath)) {
+                        // If file doesn't exist, try to generate CV
+                        return $this->generateCV($id);
+                    }
+                }
+            }
+            
+            // Update download count and last downloaded time
+            $cv->increment('download_count');
+            $cv->update(['last_downloaded_at' => now()]);
+            
+            return response()->download($filePath, $cv->cv_filename);
+        } catch (\Exception $e) {
+            abort(404, 'CV not found: ' . $e->getMessage());
         }
-        
-        // Update download count and last downloaded time
-        $cv->increment('download_count');
-        $cv->update(['last_downloaded_at' => now()]);
-        
-        return response()->download($filePath, $cv->cv_filename);
     }
 
     /**

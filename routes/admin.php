@@ -29,6 +29,9 @@ Route::middleware(['auth', 'verified', 'role:' . UserRole::HR->value])
 
         // Application Stage Management
         Route::prefix('recruitment')->name('recruitment.')->group(function () {
+            // Company selection page for recruitment
+            Route::get('/', [ApplicationStageController::class, 'companySelection'])->name('index');
+            
             // Administration Stage
             Route::prefix('administration')->name('administration.')->group(function () {
                 Route::get('/', [ApplicationStageController::class, 'administration'])->name('index');

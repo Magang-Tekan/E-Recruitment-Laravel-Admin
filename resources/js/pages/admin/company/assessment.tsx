@@ -37,6 +37,10 @@ const breadcrumbs: BreadcrumbItem[] = [
         href: '/dashboard',
     },
     {
+        title: 'Recruitment',
+        href: '/dashboard/recruitment',
+    },
+    {
         title: 'Assessment',
         href: '/dashboard/recruitment/assessment',
     },

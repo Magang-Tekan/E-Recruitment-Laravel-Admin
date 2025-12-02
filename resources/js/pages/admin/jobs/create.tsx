@@ -19,7 +19,7 @@ interface CreateJobPageProps {
     questionPacks: { id: number; pack_name: string }[];
     educationLevels: { id: number; name: string }[];
     vacancyTypes: { id: number; name: string }[];
-    openPeriods: { id: number; name: string; start_time: string; end_time: string }[];
+    periods: { id: number; name: string; start_time: string; end_time: string }[];
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -37,12 +37,14 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-export default function CreateJob({ companies, departments, majors, questionPacks, educationLevels, vacancyTypes, openPeriods }: CreateJobPageProps) {
+export default function CreateJob({ companies, departments, majors, questionPacks, educationLevels, vacancyTypes, periods }: CreateJobPageProps) {
     const [requirements, setRequirements] = useState<string>("");
     const [benefits, setBenefits] = useState<string>("");
     const [majorSearchQuery, setMajorSearchQuery] = useState<string>("");
     const [isMajorDropdownOpen, setIsMajorDropdownOpen] = useState<boolean>(false);
     const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+    const [useExistingDepartment, setUseExistingDepartment] = useState<boolean>(true);
+    const [useExistingPeriod, setUseExistingPeriod] = useState<boolean>(true);
 
     const [prefilledCompanyId] = useState(() => {
         if (typeof window === "undefined") return "";
@@ -53,6 +55,7 @@ export default function CreateJob({ companies, departments, majors, questionPack
     const { data, setData, post, processing, errors } = useForm({
         title: "",
         department_id: "",
+        department_name: "", // For new department
         major_id: "", // Legacy support
         major_ids: [] as number[],
         location: "",
@@ -62,7 +65,8 @@ export default function CreateJob({ companies, departments, majors, questionPack
         job_description: "",
         question_pack_id: "",
         education_level_id: "",
-        period_name: "",
+        period_id: "", // For existing period
+        period_name: "", // For new period
         period_start_time: "",
         period_end_time: "",
         psychotest_name: "Tes Psikologi",
@@ -91,7 +95,6 @@ export default function CreateJob({ companies, departments, majors, questionPack
         // Create the submission data
         const submitData: any = {
             title: data.title,
-            department_id: data.department_id,
             major_ids: data.major_ids.length > 0 ? data.major_ids : [],
             location: data.location,
             salary: data.salary.trim() || null,
@@ -100,22 +103,30 @@ export default function CreateJob({ companies, departments, majors, questionPack
             job_description: data.job_description,
             question_pack_id: data.question_pack_id,
             education_level_id: data.education_level_id,
-            period_name: data.period_name,
-            period_start_time: data.period_start_time,
-            period_end_time: data.period_end_time,
             psychotest_name: data.psychotest_name,
             requirements: requirementsArray,
             benefits: benefitsArray,
         };
+
+        // Handle department: existing or new
+        if (useExistingDepartment) {
+            submitData.department_id = data.department_id;
+        } else {
+            submitData.department_name = data.department_name;
+        }
+
+        // Handle period: existing or new
+        if (useExistingPeriod) {
+            submitData.period_id = data.period_id;
+        } else {
+            submitData.period_name = data.period_name;
+            submitData.period_start_time = data.period_start_time;
+            submitData.period_end_time = data.period_end_time;
+        }
         
         // Submit using router.post
-        router.post(route('admin.jobs.store'), submitData, {
-            onSuccess: () => {
-                router.visit(route('admin.jobs.index'));
-            },
-            onError: () => {
-            }
-        });
+        // Backend will redirect to company dashboard automatically
+        router.post(route('admin.jobs.store'), submitData);
     };
 
     return (
@@ -173,19 +184,56 @@ export default function CreateJob({ companies, departments, majors, questionPack
 
                                         <div>
                                             <Label htmlFor="department">Department</Label>
-                                            <Select value={data.department_id} onValueChange={(value) => setData('department_id', value)}>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select department" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {departments.map((department) => (
-                                                        <SelectItem key={department.id} value={department.id.toString()}>
-                                                            {department.name}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
+                                            <div className="space-y-2">
+                                                <div className="flex items-center space-x-4">
+                                                    <label className="flex items-center space-x-2">
+                                                        <input
+                                                            type="radio"
+                                                            checked={useExistingDepartment}
+                                                            onChange={() => {
+                                                                setUseExistingDepartment(true);
+                                                                setData('department_name', '');
+                                                            }}
+                                                            className="h-4 w-4 text-blue-600"
+                                                        />
+                                                        <span className="text-sm">Gunakan yang sudah ada</span>
+                                                    </label>
+                                                    <label className="flex items-center space-x-2">
+                                                        <input
+                                                            type="radio"
+                                                            checked={!useExistingDepartment}
+                                                            onChange={() => {
+                                                                setUseExistingDepartment(false);
+                                                                setData('department_id', '');
+                                                            }}
+                                                            className="h-4 w-4 text-blue-600"
+                                                        />
+                                                        <span className="text-sm">Buat baru</span>
+                                                    </label>
+                                                </div>
+                                                {useExistingDepartment ? (
+                                                    <Select value={data.department_id} onValueChange={(value) => setData('department_id', value)}>
+                                                        <SelectTrigger>
+                                                            <SelectValue placeholder="Select department" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {departments.map((department) => (
+                                                                <SelectItem key={department.id} value={department.id.toString()}>
+                                                                    {department.name}
+                                                                </SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                ) : (
+                                                    <Input
+                                                        value={data.department_name}
+                                                        onChange={e => setData('department_name', e.target.value)}
+                                                        placeholder="Enter new department name"
+                                                    />
+                                                )}
+                                            </div>
                                             {errors.department_id && <p className="text-red-500 text-sm">{errors.department_id}</p>}
+                                            {errors.department_name && <p className="text-red-500 text-sm">{errors.department_name}</p>}
                                         </div>
 
                                         <div>
@@ -247,32 +295,74 @@ export default function CreateJob({ companies, departments, majors, questionPack
                                         </div>
 
                                         <div>
-                                            <Label>Period Name</Label>
-                                            <Input
-                                                value={data.period_name}
-                                                onChange={e => setData('period_name', e.target.value)}
-                                                placeholder="e.g. Recruitment Q1 2026"
-                                            />
+                                            <Label>Period</Label>
+                                            <div className="space-y-2">
+                                                <div className="flex items-center space-x-4">
+                                                    <label className="flex items-center space-x-2">
+                                                        <input
+                                                            type="radio"
+                                                            checked={useExistingPeriod}
+                                                            onChange={() => {
+                                                                setUseExistingPeriod(true);
+                                                                setData('period_name', '');
+                                                                setData('period_start_time', '');
+                                                                setData('period_end_time', '');
+                                                            }}
+                                                            className="h-4 w-4 text-blue-600"
+                                                        />
+                                                        <span className="text-sm">Gunakan yang sudah ada</span>
+                                                    </label>
+                                                    <label className="flex items-center space-x-2">
+                                                        <input
+                                                            type="radio"
+                                                            checked={!useExistingPeriod}
+                                                            onChange={() => {
+                                                                setUseExistingPeriod(false);
+                                                                setData('period_id', '');
+                                                            }}
+                                                            className="h-4 w-4 text-blue-600"
+                                                        />
+                                                        <span className="text-sm">Buat baru</span>
+                                                    </label>
+                                                </div>
+                                                {useExistingPeriod ? (
+                                                    <Select value={data.period_id} onValueChange={(value) => setData('period_id', value)}>
+                                                        <SelectTrigger>
+                                                            <SelectValue placeholder="Select period" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {periods.map((period) => (
+                                                                <SelectItem key={period.id} value={period.id.toString()}>
+                                                                    {period.name} ({new Date(period.start_time).toLocaleDateString()} - {new Date(period.end_time).toLocaleDateString()})
+                                                                </SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                ) : (
+                                                    <div className="space-y-2">
+                                                        <Input
+                                                            value={data.period_name}
+                                                            onChange={e => setData('period_name', e.target.value)}
+                                                            placeholder="e.g. Recruitment Q1 2026"
+                                                        />
+                                                        <Input
+                                                            type="datetime-local"
+                                                            value={data.period_start_time}
+                                                            onChange={e => setData('period_start_time', e.target.value)}
+                                                            placeholder="Period Start Time"
+                                                        />
+                                                        <Input
+                                                            type="datetime-local"
+                                                            value={data.period_end_time}
+                                                            onChange={e => setData('period_end_time', e.target.value)}
+                                                            placeholder="Period End Time"
+                                                        />
+                                                    </div>
+                                                )}
+                                            </div>
+                                            {errors.period_id && <p className="text-red-500 text-sm">{errors.period_id}</p>}
                                             {errors.period_name && <p className="text-red-500 text-sm">{errors.period_name}</p>}
-                                        </div>
-
-                                        <div>
-                                            <Label>Period Start Time</Label>
-                                            <Input
-                                                type="datetime-local"
-                                                value={data.period_start_time}
-                                                onChange={e => setData('period_start_time', e.target.value)}
-                                            />
                                             {errors.period_start_time && <p className="text-red-500 text-sm">{errors.period_start_time}</p>}
-                                        </div>
-
-                                        <div>
-                                            <Label>Period End Time</Label>
-                                            <Input
-                                                type="datetime-local"
-                                                value={data.period_end_time}
-                                                onChange={e => setData('period_end_time', e.target.value)}
-                                            />
                                             {errors.period_end_time && <p className="text-red-500 text-sm">{errors.period_end_time}</p>}
                                         </div>
                                     </div>
