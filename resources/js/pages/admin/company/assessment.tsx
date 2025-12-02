@@ -48,8 +48,11 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 export default function Assessment({ candidates, filters, companyInfo, periodInfo }: Props) {
     const handlePageChange = (page: number) => {
-        router.visit('/dashboard/recruitment/assessment', {
-            data: { ...(filters || {}), page },
+        const params = new URLSearchParams();
+        if (filters?.company) params.append('company', filters.company);
+        if (filters?.vacancy) params.append('vacancy', filters.vacancy);
+        params.append('page', page.toString());
+        router.visit(`/dashboard/recruitment/assessment?${params.toString()}`, {
             preserveState: true,
             preserveScroll: true,
         });
@@ -127,17 +130,23 @@ export default function Assessment({ candidates, filters, companyInfo, periodInf
                     </button>
                     <button
                         className="flex-1 border-b-2 border-primary px-4 py-2 text-sm font-medium text-primary"
-                        onClick={() => router.visit('/dashboard/recruitment/assessment', {
-                            data: { company: filters?.company, vacancy: filters?.vacancy }
-                        })}
+                        onClick={() => {
+                            const params = new URLSearchParams();
+                            if (filters?.company) params.append('company', filters.company);
+                            if (filters?.vacancy) params.append('vacancy', filters.vacancy);
+                            router.visit(`/dashboard/recruitment/assessment?${params.toString()}`);
+                        }}
                     >
                         Assessment
                     </button>
                     <button
                         className="flex-1 px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700"
-                        onClick={() => router.visit('/dashboard/recruitment/interview', {
-                            data: { company: filters?.company, vacancy: filters?.vacancy }
-                        })}
+                        onClick={() => {
+                            const params = new URLSearchParams();
+                            if (filters?.company) params.append('company', filters.company);
+                            if (filters?.vacancy) params.append('vacancy', filters.vacancy);
+                            router.visit(`/dashboard/recruitment/interview?${params.toString()}`);
+                        }}
                     >
                         Interview
                     </button>

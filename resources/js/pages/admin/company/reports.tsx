@@ -84,20 +84,25 @@ export default function Reports({ candidates, filters, companyInfo, periodInfo }
 
     const handleSort = (column: string) => {
         const newOrder = filters?.sort === column && filters.order === 'asc' ? 'desc' : 'asc';
-        router.visit('/dashboard/recruitment/reports', {
-            data: {
-                ...(filters || {}),
-                sort: column,
-                order: newOrder,
-            },
+        const params = new URLSearchParams();
+        if (filters?.company) params.append('company', filters.company);
+        if (filters?.vacancy) params.append('vacancy', filters.vacancy);
+        params.append('sort', column);
+        params.append('order', newOrder);
+        router.visit(`/dashboard/recruitment/reports?${params.toString()}`, {
             preserveState: true,
             preserveScroll: true,
         });
     };
 
     const handlePageChange = (page: number) => {
-        router.visit('/dashboard/recruitment/reports', {
-            data: { ...(filters || {}), page },
+        const params = new URLSearchParams();
+        if (filters?.company) params.append('company', filters.company);
+        if (filters?.vacancy) params.append('vacancy', filters.vacancy);
+        if (filters?.sort) params.append('sort', filters.sort);
+        if (filters?.order) params.append('order', filters.order);
+        params.append('page', page.toString());
+        router.visit(`/dashboard/recruitment/reports?${params.toString()}`, {
             preserveState: true,
             preserveScroll: true,
         });
@@ -120,41 +125,45 @@ export default function Reports({ candidates, filters, companyInfo, periodInfo }
                 <div className="flex w-full border-b">
                     <button
                         className="flex-1 px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700"
-                        onClick={() =>
-                            router.visit('/dashboard/recruitment/administration', {
-                                data: { company: filters?.company, vacancy: filters?.vacancy },
-                            })
-                        }
+                        onClick={() => {
+                            const params = new URLSearchParams();
+                            if (filters?.company) params.append('company', filters.company);
+                            if (filters?.vacancy) params.append('vacancy', filters.vacancy);
+                            router.visit(`/dashboard/recruitment/administration?${params.toString()}`);
+                        }}
                     >
                         Administration
                     </button>
                     <button
                         className="flex-1 px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700"
-                        onClick={() =>
-                            router.visit('/dashboard/recruitment/assessment', {
-                                data: { company: filters?.company, vacancy: filters?.vacancy },
-                            })
-                        }
+                        onClick={() => {
+                            const params = new URLSearchParams();
+                            if (filters?.company) params.append('company', filters.company);
+                            if (filters?.vacancy) params.append('vacancy', filters.vacancy);
+                            router.visit(`/dashboard/recruitment/assessment?${params.toString()}`);
+                        }}
                     >
                         Assessment
                     </button>
                     <button
                         className="flex-1 px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700"
-                        onClick={() =>
-                            router.visit('/dashboard/recruitment/interview', {
-                                data: { company: filters?.company, vacancy: filters?.vacancy },
-                            })
-                        }
+                        onClick={() => {
+                            const params = new URLSearchParams();
+                            if (filters?.company) params.append('company', filters.company);
+                            if (filters?.vacancy) params.append('vacancy', filters.vacancy);
+                            router.visit(`/dashboard/recruitment/interview?${params.toString()}`);
+                        }}
                     >
                         Interview
                     </button>
                     <button
                         className="border-primary text-primary flex-1 border-b-2 px-4 py-2 text-sm font-medium"
-                        onClick={() =>
-                            router.visit('/dashboard/recruitment/reports', {
-                                data: { company: filters?.company, vacancy: filters?.vacancy },
-                            })
-                        }
+                        onClick={() => {
+                            const params = new URLSearchParams();
+                            if (filters?.company) params.append('company', filters.company);
+                            if (filters?.vacancy) params.append('vacancy', filters.vacancy);
+                            router.visit(`/dashboard/recruitment/reports?${params.toString()}`);
+                        }}
                     >
                         Reports
                     </button>

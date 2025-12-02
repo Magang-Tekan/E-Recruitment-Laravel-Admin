@@ -160,17 +160,25 @@ export default function Administration({ candidates, filters, companyInfo, perio
                     </button>
                     <button
                         className="flex-1 px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700"
-                        onClick={() => router.visit('/dashboard/recruitment/assessment', {
-                            data: { company: filters?.company, period: filters?.period, vacancy: filters?.vacancy }
-                        })}
+                        onClick={() => {
+                            const params = new URLSearchParams();
+                            if (filters?.company) params.append('company', filters.company);
+                            if (filters?.period) params.append('period', filters.period);
+                            if (filters?.vacancy) params.append('vacancy', filters.vacancy);
+                            router.visit(`/dashboard/recruitment/assessment?${params.toString()}`);
+                        }}
                     >
                         Assessment
                     </button>
                     <button
                         className="flex-1 px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700"
-                        onClick={() => router.visit('/dashboard/recruitment/interview', {
-                            data: { company: filters?.company, period: filters?.period, vacancy: filters?.vacancy }
-                        })}
+                        onClick={() => {
+                            const params = new URLSearchParams();
+                            if (filters?.company) params.append('company', filters.company);
+                            if (filters?.period) params.append('period', filters.period);
+                            if (filters?.vacancy) params.append('vacancy', filters.vacancy);
+                            router.visit(`/dashboard/recruitment/interview?${params.toString()}`);
+                        }}
                     >
                         Interview
                     </button>
