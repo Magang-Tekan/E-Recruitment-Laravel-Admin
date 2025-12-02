@@ -45,18 +45,8 @@ interface Props {
         search?: string;
         period?: number | string;
     };
+    from?: string;
 }
-
-const breadcrumbs: BreadcrumbItem[] = [
-    {
-        title: 'Dashboard',
-        href: '/dashboard',
-    },
-    {
-        title: 'Kandidat',
-        href: '#',
-    },
-];
 
 export default function CompanyCandidates({ 
     company = { id: 0, name: '' }, 
@@ -64,8 +54,38 @@ export default function CompanyCandidates({
     selectedPeriod, 
     candidates = [], 
     pagination = { total: 0, per_page: 10, current_page: 1, last_page: 1 },
-    filters = {}
+    filters = {},
+    from = 'company-management'
 }: Props) {
+    const breadcrumbs: BreadcrumbItem[] = from === 'recruitment'
+        ? [
+            {
+                title: 'Dashboard',
+                href: '/dashboard',
+            },
+            {
+                title: 'Recruitment',
+                href: '/dashboard/recruitment',
+            },
+            {
+                title: 'Kandidat',
+                href: '#',
+            },
+        ]
+        : [
+            {
+                title: 'Dashboard',
+                href: '/dashboard',
+            },
+            {
+                title: 'Company Management',
+                href: '/dashboard/company-management',
+            },
+            {
+                title: 'Kandidat',
+                href: '#',
+            },
+        ];
     const [searchTerm, setSearchTerm] = useState(filters?.search || '');
     const [selectedPeriodId, setSelectedPeriodId] = useState<string>(selectedPeriod?.toString() || '');
     const [isExporting, setIsExporting] = useState(false);

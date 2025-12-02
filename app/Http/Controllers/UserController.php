@@ -188,8 +188,8 @@ class UserController extends Controller
         $perPage = $request->input('per_page', 10);
         $page = $request->input('page', 1);
 
-        // Get all users, not just candidates
-        $usersQuery = User::query();
+        // Get all users except candidates
+        $usersQuery = User::where('role', '!=', 'candidate');
         $totalUsers = $usersQuery->count();
 
         // Apply pagination using Laravel's paginate method for better handling
@@ -213,8 +213,8 @@ class UserController extends Controller
         $perPage = $request->input('per_page', 10);
         $page = $request->input('page', 1);
 
-        // Get all users, not just candidates
-        $usersQuery = User::query();
+        // Get all users except candidates
+        $usersQuery = User::where('role', '!=', 'candidate');
         $totalUsers = $usersQuery->count();
 
         // Apply pagination using Laravel's paginate method for better handling

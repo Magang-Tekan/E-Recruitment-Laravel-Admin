@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/sidebar';
 import { NavItem } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
-import { Building2, ClipboardList, Github, LayoutGrid, LucideFileQuestion, Package, SearchIcon, Settings, User, FolderTree } from 'lucide-react';
+import { Building2, Github, LayoutGrid, LucideFileQuestion, Package, Settings, User, Briefcase } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import AppLogo from './app-logo';
 
@@ -23,16 +23,21 @@ import '../../../resources/css/app.css';
 
 const dashboardNavItems: NavItem[] = [{ title: 'Dashboard', href: '/dashboard', icon: LayoutGrid }];
 
+// Management submenu items
+const managementItems: NavItem[] = [
+    { title: 'Company Management', href: '/dashboard/company-management', icon: Building2 },
+    { title: 'User Management', href: '/dashboard/users', icon: User },
+];
+
 // Test and assessment submenu items
 const testAssessmentItems: NavItem[] = [
     { title: 'Question Packs', href: '/dashboard/questionpacks', icon: Package },
 ];
 
-// Updated main navigation items - tambahkan Company Management
+// Updated main navigation items with better organization
 const mainNavItems: { name: string; icon: React.ElementType; href?: string; items?: NavItem[] }[] = [
-    { name: 'User Management', href: '/dashboard/users', icon: User },
-    { name: 'Company Management', href: '/dashboard/company-management', icon: Settings }, // Menggunakan icon Settings
-    { name: 'Department Management', href: '/dashboard/management/department-stage', icon: FolderTree }, // Menambahkan Department Management
+    { name: 'Recruitment', href: '/dashboard/recruitment', icon: Briefcase },
+    { name: 'Management', icon: Settings, items: managementItems },
     { name: 'Test & Assessment', icon: LucideFileQuestion, items: testAssessmentItems },
 ];
 
@@ -41,7 +46,13 @@ const footerNavItems: NavItem[] = [{ title: 'Github', href: 'https://github.com/
 function SidebarNavGroup({ title, items }: { title: string; items: NavItem[] }) {
     const { url } = usePage();
 
-    const isActive = (href: string) => url === href || (href === '/dashboard' && (url === '/' || url === '/dashboard'));
+    const isActive = (href: string) => {
+        if (href === '/dashboard') {
+            return url === '/' || url === '/dashboard';
+        }
+        // Check if URL starts with the href (for nested routes)
+        return url === href || url.startsWith(href + '/');
+    };
 
     return (
         <SidebarGroup>
@@ -71,8 +82,10 @@ export function AppSidebar({ navigation, sharedSubItems }: { navigation: any[], 
 
     // Use useEffect to determine which sections should be active based on the current URL
     useEffect(() => {
-        // If URL contains questions or questionpacks, activate the Test & Assessment section
-        if (url.includes('/questions') || url.includes('/questionpacks')) {
+        // Activate sections based on URL patterns
+        if (url.includes('/company-management') || url.includes('/users')) {
+            setActiveManagementItem('Management');
+        } else if (url.includes('/questions') || url.includes('/questionpacks')) {
             setActiveManagementItem('Test & Assessment');
         }
     }, [url]);
@@ -81,7 +94,13 @@ export function AppSidebar({ navigation, sharedSubItems }: { navigation: any[], 
         setActiveManagementItem((prev) => (prev === itemName ? null : itemName));
     };
 
-    const isActive = (href: string) => url === href || (href === '/dashboard' && (url === '/' || url === '/dashboard'));
+    const isActive = (href: string) => {
+        if (href === '/dashboard') {
+            return url === '/' || url === '/dashboard';
+        }
+        // Check if URL starts with the href (for nested routes)
+        return url === href || url.startsWith(href + '/');
+    };
 
     return (
         <Sidebar collapsible="icon" variant="inset">

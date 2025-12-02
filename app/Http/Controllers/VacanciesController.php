@@ -115,9 +115,9 @@ class VacanciesController extends Controller
     public function create(Request $request)
     {
         try {
-            $validated = $request->validate([
+            // Dynamic validation based on whether using existing or new department/period
+            $rules = [
                 'title' => 'required|string|max:255',
-                'department_id' => 'required|integer|exists:departments,id',
                 'major_id' => 'nullable|integer|exists:master_majors,id', // Legacy support
                 'major_ids' => 'nullable|array',
                 'major_ids.*' => 'integer|exists:master_majors,id',
@@ -132,11 +132,26 @@ class VacanciesController extends Controller
                 'education_level_id' => 'nullable|integer|exists:education_levels,id',
                 'vacancy_type_id' => 'required|integer|exists:vacancy_types,id',
                 'job_description' => 'nullable|string|max:1000',
-                'period_name' => 'required|string|max:255',
-                'period_start_time' => 'required|date',
-                'period_end_time' => 'required|date|after:period_start_time',
                 'psychotest_name' => 'nullable|string|max:255',
-            ]);
+            ];
+
+            // Department validation: either department_id (existing) or department_name (new)
+            if ($request->has('department_id') && $request->department_id) {
+                $rules['department_id'] = 'required|integer|exists:departments,id';
+            } else {
+                $rules['department_name'] = 'required|string|max:255';
+            }
+
+            // Period validation: either period_id (existing) or period_name + dates (new)
+            if ($request->has('period_id') && $request->period_id) {
+                $rules['period_id'] = 'required|integer|exists:periods,id';
+            } else {
+                $rules['period_name'] = 'required|string|max:255';
+                $rules['period_start_time'] = 'required|date';
+                $rules['period_end_time'] = 'required|date|after:period_start_time';
+            }
+
+            $validated = $request->validate($rules);
             
         } catch (\Illuminate\Validation\ValidationException $e) {
             // Handle Inertia requests
@@ -155,19 +170,38 @@ class VacanciesController extends Controller
             $job = null;
 
             DB::transaction(function () use ($validated, $user_id, &$job) {
-                // Buat period baru untuk lowongan ini
-                $period = Period::create([
-                    'name' => $validated['period_name'],
-                    'description' => null,
-                    'start_time' => $validated['period_start_time'],
-                    'end_time' => $validated['period_end_time'],
-                ]);
+                // Handle department: existing or new
+                $departmentId = null;
+                if (isset($validated['department_id'])) {
+                    $departmentId = $validated['department_id'];
+                } else {
+                    // Create new department
+                    $newDepartment = Department::create([
+                        'name' => $validated['department_name'],
+                    ]);
+                    $departmentId = $newDepartment->id;
+                }
+
+                // Handle period: existing or new
+                $periodId = null;
+                if (isset($validated['period_id'])) {
+                    $periodId = $validated['period_id'];
+                } else {
+                    // Create new period
+                    $newPeriod = Period::create([
+                        'name' => $validated['period_name'],
+                        'description' => null,
+                        'start_time' => $validated['period_start_time'],
+                        'end_time' => $validated['period_end_time'],
+                    ]);
+                    $periodId = $newPeriod->id;
+                }
 
                 // Prepare data for creation
                 $createData = [
                     'user_id' => $user_id,
                     'title' => $validated['title'],
-                    'department_id' => $validated['department_id'],
+                    'department_id' => $departmentId,
                     'major_id' => null, // Always set to null, use majors relationship instead
                     'location' => $validated['location'],
                     'salary' => $validated['salary'] ?? null,
@@ -191,19 +225,19 @@ class VacanciesController extends Controller
                     $job->majors()->sync([$validated['major_id']]);
                 }
 
-                // Create vacancy-period relationship ke period baru
+                // Create vacancy-period relationship
                 VacancyPeriods::create([
                     'vacancy_id' => $job->id,
-                    'period_id' => $period->id,
+                    'period_id' => $periodId,
                 ]);
             });
 
             // Load the relationships
             $job->load(['company', 'department', 'major', 'majors', 'questionPack', 'educationLevel', 'vacancyType']);
             
-            // Handle Inertia requests
+            // Handle Inertia requests - redirect to company dashboard
             if ($request->header('X-Inertia')) {
-                return redirect()->route('admin.jobs.index')->with('success', 'Job created successfully');
+                return redirect()->route('companies.dashboard', ['company' => $job->company_id])->with('success', 'Job created successfully');
             }
             
             return response()->json([
@@ -402,9 +436,8 @@ class VacanciesController extends Controller
         $educationLevels = EducationLevel::orderBy('name')->get();
         $vacancyTypes = VacancyType::select('id', 'name')->orderBy('name')->get();
         
-        // Get open periods (periods that haven't ended yet)
-        $openPeriods = Period::where('end_time', '>', now())
-            ->orderBy('start_time', 'asc')
+        // Get all periods for dropdown (not just open periods)
+        $periods = Period::orderBy('start_time', 'desc')
             ->get(['id', 'name', 'start_time', 'end_time']);
 
         return Inertia::render('admin/jobs/create', [
@@ -414,7 +447,7 @@ class VacanciesController extends Controller
             'questionPacks' => $questionPacks,
             'educationLevels' => $educationLevels,
             'vacancyTypes' => $vacancyTypes,
-            'openPeriods' => $openPeriods,
+            'periods' => $periods,
         ]);
     }
 

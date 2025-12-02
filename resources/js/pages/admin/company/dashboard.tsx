@@ -28,14 +28,21 @@ interface Props {
   company: Company;
   stats: Stats;
   vacancies: Vacancy[];
+  from?: string;
 }
 
-export default function CompanyDashboard({ company, stats, vacancies }: Props) {
-  const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Company Management', href: '/dashboard/company-management' },
-    { title: company.name, href: `/dashboard/companies/${company.id}/dashboard` },
-  ];
+export default function CompanyDashboard({ company, stats, vacancies, from = 'company-management' }: Props) {
+  const breadcrumbs: BreadcrumbItem[] = from === 'recruitment' 
+    ? [
+        { title: 'Dashboard', href: '/dashboard' },
+        { title: 'Recruitment', href: '/dashboard/recruitment' },
+        { title: company.name, href: `/dashboard/companies/${company.id}/dashboard?from=recruitment` },
+      ]
+    : [
+        { title: 'Dashboard', href: '/dashboard' },
+        { title: 'Company Management', href: '/dashboard/company-management' },
+        { title: company.name, href: `/dashboard/companies/${company.id}/dashboard` },
+      ];
 
   return (
     <AppLayout breadcrumbs={breadcrumbs}>
@@ -51,10 +58,10 @@ export default function CompanyDashboard({ company, stats, vacancies }: Props) {
           <Button
             variant="outline"
             className="gap-2"
-            onClick={() => router.visit('/dashboard/company-management')}
+            onClick={() => router.visit(from === 'recruitment' ? '/dashboard/recruitment' : '/dashboard/company-management')}
           >
             <ArrowLeft className="h-4 w-4" />
-            Back to Company Management
+            {from === 'recruitment' ? 'Back to Recruitment' : 'Back to Company Management'}
           </Button>
         </div>
 
